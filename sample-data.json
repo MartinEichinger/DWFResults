@@ -1,0 +1,82 @@
+{
+  "event": {
+    "name": "Deutsche Meisterschaft Wushu",
+    "year": 2024,
+    "slug": "2024-deutsche-meisterschaft",
+    "date": "2024-06-15",
+    "location": "Berlin"
+  },
+  "athletes": [
+    {
+      "name": "Max Mustermann",
+      "club": "Wushu Club Berlin"
+    },
+    {
+      "name": "Anna Schmidt",
+      "club": "Wushu Club Berlin"
+    },
+    {
+      "name": "Tom Weber",
+      "club": "Kampfkunst München"
+    },
+    {
+      "name": "Lisa Meyer",
+      "club": "Kampfkunst München"
+    },
+    {
+      "name": "Jan Fischer",
+      "club": "Wushu Hamburg"
+    }
+  ],
+  "groups": [
+    {
+      "name": "Taolu Männer - Changquan",
+      "category": "Taolu",
+      "age_group": "Erwachsene",
+      "results": [
+        {
+          "athlete_name": "Max Mustermann",
+          "rank": 1,
+          "score": 9.45,
+          "difficulty": 2.0,
+          "execution": 7.45
+        },
+        {
+          "athlete_name": "Tom Weber",
+          "rank": 2,
+          "score": 9.32,
+          "difficulty": 1.9,
+          "execution": 7.42
+        },
+        {
+          "athlete_name": "Jan Fischer",
+          "rank": 3,
+          "score": 9.18,
+          "difficulty": 1.8,
+          "execution": 7.38
+        }
+      ]
+    },
+    {
+      "name": "Taolu Frauen - Jianshu",
+      "category": "Taolu",
+      "age_group": "Erwachsene",
+      "results": [
+        {
+          "athlete_name": "Anna Schmidt",
+          "rank": 1,
+          "score": 9.52,
+          "difficulty": 2.1,
+          "execution": 7.42
+        },
+        {
+          "athlete_name": "Lisa Meyer",
+          "rank": 2,
+          "score": 9.40,
+          "difficulty": 2.0,
+          "execution": 7.40
+        }
+      ]
+    }
+  ]
+}
