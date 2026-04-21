@@ -98,6 +98,25 @@ Gibt Details und Ergebnisse für eine spezifische Veranstaltung zurück.
 ### POST /api/import
 Importiert Daten von extern. Benötigt `x-api-key` Header.
 
+## Daten importieren
+
+### Mit dem Import-Script (empfohlen)
+
+Das einfachste Verfahren ist das mitgelieferte Import-Script:
+
+```bash
+# Sample-Daten importieren (benötigt API_KEY in .env.local)
+npm run import sample-data.json
+
+# Mit explizitem API-Key
+npm run import sample-data.json http://localhost:3000 your-api-key
+
+# Zu Vercel deployen
+npm run import sample-data.json https://your-app.vercel.app your-api-key
+```
+
+### Mit cURL
+
 Beispiel Request:
 ```bash
 curl -X POST http://localhost:3000/api/import \
