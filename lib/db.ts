@@ -43,7 +43,7 @@ export async function initDatabase() {
 
 	await db.execute(`
     CREATE TABLE IF NOT EXISTS athletes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
       club TEXT,
       gender TEXT,
