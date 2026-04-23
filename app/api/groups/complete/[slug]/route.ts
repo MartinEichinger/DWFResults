@@ -103,8 +103,8 @@ export async function POST(
 				// Ergebnis einfügen oder aktualisieren
 				await db.execute({
 					sql: `
-						INSERT INTO results (group_id, athlete_id, rank, score)
-						VALUES (?, ?, ?, ?)
+						INSERT INTO results (group_id, athlete_id, rank, score, notshowedup, mainrefereededuction, mainrefereedeductionjustification)
+						VALUES (?, ?, ?, ?, ?, ?, ?)
 						ON CONFLICT DO NOTHING
 					`,
 					args: [
@@ -112,6 +112,10 @@ export async function POST(
 						p.id,
 						p.placement ?? null,
 						p.finalscore ?? null,
+						p.notshowedup ?? false,
+						p.mainrefereededuction ?? null,
+						p.mainrefereedeductionjustification ??
+							null,
 					],
 				});
 			}

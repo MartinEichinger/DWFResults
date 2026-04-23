@@ -59,9 +59,9 @@ export async function initDatabase() {
       athlete_id INTEGER NOT NULL,
       rank INTEGER,
       score REAL,
-      judge_scores TEXT,
-      difficulty REAL,
-      execution REAL,
+      mainrefereededuction REAL,
+      mainrefereedeductionjustification TEXT,
+      notshowedup INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (group_id) REFERENCES groups(id),
       FOREIGN KEY (athlete_id) REFERENCES athletes(id)
@@ -100,9 +100,7 @@ export interface Result {
 	athlete_id: number;
 	rank?: number;
 	score?: number;
-	judge_scores?: string;
-	difficulty?: number;
-	execution?: number;
-	athlete_name?: string;
-	athlete_club?: string;
+	mainrefereededuction?: number;
+	mainrefereedeductionjustification?: string;
+	notshowedup?: boolean;
 }
