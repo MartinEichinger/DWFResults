@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { formatDate } from "@/app/utilities/formatDate";
 
 interface Result {
 	id: number;
@@ -31,7 +32,7 @@ interface Event {
 	location?: string;
 }
 
-const debug = 1;
+const debug = 0;
 
 export default function EventResultsPage() {
 	const params = useParams();
@@ -118,7 +119,8 @@ export default function EventResultsPage() {
 					</h1>
 					{event.date && (
 						<p className="text-gray-600 dark:text-gray-400">
-							Datum: {event.date}
+							Datum:{" "}
+							{formatDate(event.date)}
 						</p>
 					)}
 					{event.location && (
