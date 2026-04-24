@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db, initDatabase } from "@/lib/db";
 
+const debug = 1;
+
 // API endpoint for external data import
 // Accepts JSON data with events, groups, athletes, and results
 export async function POST(
@@ -16,6 +18,8 @@ export async function POST(
 		const apiKey = authHeader?.startsWith("Bearer ")
 			? authHeader.slice(7)
 			: null;
+		if (debug > 0)
+			console.log("groups/complete/POST: ", slug, apiKey);
 
 		// Basic API key validation (in production, use environment variable)
 		if (apiKey !== process.env.API_KEY) {
