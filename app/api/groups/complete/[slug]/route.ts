@@ -19,7 +19,12 @@ export async function POST(
 			? authHeader.slice(7)
 			: null;
 		if (debug > 0)
-			console.log("groups/complete/POST: ", slug, apiKey);
+			console.log(
+				"groups/complete/POST: ",
+				slug,
+				apiKey,
+				process.env.API_KEY,
+			);
 
 		// Basic API key validation (in production, use environment variable)
 		if (apiKey !== process.env.API_KEY) {
