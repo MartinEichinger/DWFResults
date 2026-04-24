@@ -31,6 +31,8 @@ interface Event {
 	location?: string;
 }
 
+const debug = 1;
+
 export default function EventResultsPage() {
 	const params = useParams();
 	const [event, setEvent] = useState<Event | null>(null);
@@ -99,6 +101,7 @@ export default function EventResultsPage() {
 		);
 	}
 
+	if (debug > 0) console.log("EventResultsPage: ", groups);
 	return (
 		<div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
 			<div className="max-w-7xl mx-auto">
