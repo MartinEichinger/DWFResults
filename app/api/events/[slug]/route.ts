@@ -38,7 +38,7 @@ export async function GET(
             FROM results r
             JOIN athletes a ON r.athlete_id = a.id
             WHERE r.group_id = ?
-            ORDER BY r.rank ASC
+            ORDER BY r.rank ASC NULLS LAST
           `,
           args: [group.id],
         });
