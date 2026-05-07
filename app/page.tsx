@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatDate } from "./utilities/formatDate";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Container from "@mui/material/Container";
+import CircularProgress from "@mui/material/CircularProgress";
 
 interface Event {
 	id: number;
@@ -42,83 +48,167 @@ export default function Home() {
 	};
 
 	return (
-		<div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
-			<main className="max-w-4xl mx-auto">
-				<h1 className="text-4xl font-bold mb-8">
+		<Box
+			sx={{
+				minHeight: "100vh",
+				padding: { xs: "16px", lg: "56px" },
+				backgroundColor: "background.default",
+			}}
+		>
+			<Container maxWidth="lg">
+				<Typography
+					variant="h3"
+					sx={{
+						marginBottom: "32px",
+						fontWeight: "bold",
+					}}
+				>
 					DWF Wushu Competition Results
-				</h1>
+				</Typography>
 
-				<div className="mb-8">
-					<h2 className="text-2xl font-semibold mb-4">
+				<Box sx={{ marginBottom: "32px" }}>
+					<Typography
+						variant="h5"
+						sx={{ marginBottom: "16px", fontWeight: "600" }}
+					>
 						Veranstaltungen
-					</h2>
+					</Typography>
 
 					{loading ? (
-						<p className="text-gray-600 dark:text-gray-400">
-							Lädt...
-						</p>
+						<Box
+							sx={{
+								display: "flex",
+								justifyContent: "center",
+								padding: "32px",
+							}}
+						>
+							<CircularProgress />
+						</Box>
 					) : events.length === 0 ? (
-						<div className="bg-white dark:bg-gray-800 rounded-lg p-8 text-center">
-							<p className="text-gray-600 dark:text-gray-400 mb-4">
-								Noch keine
-								Veranstaltungen
-								vorhanden.
-							</p>
-							<p className="text-sm text-gray-500 dark:text-gray-500">
-								Nutze die API
-								(/api/import) um
-								Daten zu
-								importieren.
-							</p>
-						</div>
+						<Card variant="outlined">
+							<CardContent
+								sx={{
+									padding: "32px",
+									textAlign: "center",
+								}}
+							>
+								<Typography
+									variant="body1"
+									color="text.secondary"
+									sx={{ marginBottom: "16px" }}
+								>
+									Noch keine Veranstaltungen
+									vorhanden.
+								</Typography>
+								<Typography
+									variant="body2"
+									color="text.secondary"
+								>
+									Nutze die API (/api/import) um
+									Daten zu importieren.
+								</Typography>
+							</CardContent>
+						</Card>
 					) : (
-						<nav className="space-y-2">
+						<Box
+							sx={{
+								display: "flex",
+								flexDirection: "column",
+								gap: "8px",
+							}}
+						>
 							{events.map((event) => (
 								<Link
-									key={
-										event.id
-									}
-									href={getEventUrl(
-										event,
-									)}
-									className="block p-4 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors shadow-sm"
+									key={event.id}
+									href={getEventUrl(event)}
+									style={{
+										textDecoration: "none",
+									}}
 								>
-									<div className="flex justify-between items-start">
-										<div>
-											<h3 className="font-semibold text-lg">
-												{
-													event.name
-												}
-											</h3>
-											{event.date && (
-												<p className="text-sm text-gray-600 dark:text-gray-400">
-													Datum:{" "}
-													{formatDate(
-														event.date,
+									<Card
+										variant="outlined"
+										sx={{
+											transition:
+												"all 0.2s",
+											"&:hover": {
+												backgroundColor:
+													"primary.light",
+												transform:
+													"translateY(-2px)",
+												boxShadow: 3,
+											},
+										}}
+									>
+										<CardContent
+											sx={{
+												padding: "16px",
+											}}
+										>
+											<Box
+												sx={{
+													display:
+														"flex",
+													justifyContent:
+														"space-between",
+													alignItems:
+														"flex-start",
+												}}
+											>
+												<Box>
+													<Typography
+														variant="h6"
+														sx={{
+															fontWeight:
+																"600",
+															color: "text.primary",
+														}}
+													>
+														{
+															event.name
+														}
+													</Typography>
+													{event.date && (
+														<Typography
+															variant="body2"
+															color="text.secondary"
+														>
+															Datum:{" "}
+															{formatDate(
+																event.date,
+															)}
+														</Typography>
 													)}
-												</p>
-											)}
-											{event.location && (
-												<p className="text-sm text-gray-600 dark:text-gray-400">
-													Ort:{" "}
-													{
-														event.location
-													}
-												</p>
-											)}
-										</div>
-										<span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-											{
-												event.year
-											}
-										</span>
-									</div>
+													{event.location && (
+														<Typography
+															variant="body2"
+															color="text.secondary"
+														>
+															Ort:{" "}
+															{
+																event.location
+															}
+														</Typography>
+													)}
+												</Box>
+												<Typography
+													variant="h4"
+													sx={{
+														fontWeight:
+															"bold",
+														color: "primary.main",
+													}}
+												>
+													{event.year}
+												</Typography>
+											</Box>
+										</CardContent>
+									</Card>
 								</Link>
 							))}
-						</nav>
+						</Box>
 					)}
-				</div>
-			</main>
-		</div>
+				</Box>
+			</Container>
+		</Box>
 	);
 }
