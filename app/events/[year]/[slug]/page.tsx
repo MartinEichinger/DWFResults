@@ -136,11 +136,11 @@ export default function EventResultsPage() {
 							Noch keine Ergebnisse verfügbar.
 						</p>
 					) : (
-						<div className="flex flex-wrap gap-6">
+						<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 							{groups.map((group) => (
 								<div
 									key={group.id}
-									className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:w-[calc(50%-0.75rem)]"
+									className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
 								>
 								{/* Group Header */}
 								<div className="bg-blue-600 p-4 text-white">
