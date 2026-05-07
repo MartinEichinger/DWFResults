@@ -74,8 +74,8 @@ export default function EventResultsPage() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen p-8">
-				<div className="max-w-7xl mx-auto">
+			<div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+				<div className="mx-auto max-w-7xl rounded-2xl bg-white p-6 shadow-sm sm:p-8">
 					<p>Lädt...</p>
 				</div>
 			</div>
@@ -84,8 +84,8 @@ export default function EventResultsPage() {
 
 	if (error || !event) {
 		return (
-			<div className="min-h-screen p-8">
-				<div className="max-w-7xl mx-auto">
+			<div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+				<div className="mx-auto max-w-7xl rounded-2xl bg-white p-6 shadow-sm sm:p-8">
 					<p className="text-red-600">
 						Fehler:{" "}
 						{error ||
@@ -104,53 +104,53 @@ export default function EventResultsPage() {
 
 	if (debug > 0) console.log("EventResultsPage: ", groups);
 	return (
-		<div className="min-h-screen p-8 bg-gray-50 dark:bg-gray-900">
-			<div className="max-w-7xl mx-auto">
-				{/* Header */}
-				<div className="mb-8">
+		<div className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+			<div className="mx-auto max-w-7xl overflow-hidden rounded-2xl bg-white shadow-sm">
+				<div className="bg-blue-600 px-6 py-5 text-white sm:px-8">
 					<Link
 						href="/"
-						className="text-blue-600 hover:underline mb-4 inline-block"
+						className="mb-4 inline-block text-sm font-medium text-blue-100 transition-colors hover:text-white hover:underline"
 					>
 						← Zurück zur Startseite
 					</Link>
-					<h1 className="text-4xl font-bold mb-2">
+					<h1 className="text-3xl font-bold leading-tight sm:text-4xl">
 						{event.name}
 					</h1>
-					{event.date && (
-						<p className="text-gray-600 dark:text-gray-400">
-							Datum:{" "}
-							{formatDate(event.date)}
-						</p>
-					)}
-					{event.location && (
-						<p className="text-gray-600 dark:text-gray-400">
-							Ort: {event.location}
-						</p>
-					)}
+					<div className="mt-2 space-y-1 text-sm text-blue-100 sm:text-base">
+						{event.date && (
+							<p>
+								Datum:{" "}
+								{formatDate(event.date)}
+							</p>
+						)}
+						{event.location && (
+							<p>Ort: {event.location}</p>
+						)}
+					</div>
 				</div>
 
 				{/* Groups */}
-				{groups.length === 0 ? (
-					<p className="text-gray-600 dark:text-gray-400">
-						Noch keine Ergebnisse verfügbar.
-					</p>
-				) : (
-					<div className="space-y-8">
-						{groups.map((group) => (
-							<div
-								key={group.id}
-								className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
-							>
+				<div className="p-4 sm:p-6 lg:p-8">
+					{groups.length === 0 ? (
+						<p className="text-gray-600">
+							Noch keine Ergebnisse verfügbar.
+						</p>
+					) : (
+						<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+							{groups.map((group) => (
+								<div
+									key={group.id}
+									className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+								>
 								{/* Group Header */}
-								<div className="bg-blue-600 text-white p-4">
-									<h2 className="text-2xl font-bold">
+								<div className="bg-blue-600 p-4 text-white">
+									<h2 className="text-xl font-bold">
 										{
 											group.name
 										}
 									</h2>
 									{group.category && (
-										<p className="text-blue-100">
+										<p className="text-sm text-blue-100">
 											Kategorie:{" "}
 											{
 												group.category
@@ -158,7 +158,7 @@ export default function EventResultsPage() {
 										</p>
 									)}
 									{group.age_group && (
-										<p className="text-blue-100">
+										<p className="text-sm text-blue-100">
 											Altersklasse:{" "}
 											{
 												group.age_group
@@ -170,23 +170,23 @@ export default function EventResultsPage() {
 								{/* Results Table */}
 								<div className="overflow-x-auto">
 									<table className="w-full">
-										<thead className="bg-gray-100 dark:bg-gray-700">
+										<thead className="bg-gray-100">
 											<tr>
-												<th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+												<th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
 													Platz
 												</th>
-												<th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+												<th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
 													Name
 												</th>
-												<th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+												<th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">
 													Verein
 												</th>
-												<th className="px-4 py-3 text-right text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+												<th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-700">
 													Endwertung
 												</th>
 											</tr>
 										</thead>
-										<tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+										<tbody className="divide-y divide-gray-200 bg-white">
 											{group.results.map(
 												(
 													result,
@@ -195,29 +195,29 @@ export default function EventResultsPage() {
 														key={
 															result.id
 														}
-														className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+														className="transition-colors hover:bg-gray-50"
 													>
 														<td className="px-4 py-4 whitespace-nowrap">
-															<span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+															<span className="text-lg font-semibold text-gray-900">
 																{result.rank ||
 																	"-"}
 															</span>
 														</td>
 														<td className="px-4 py-4 whitespace-nowrap">
-															<div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+															<div className="text-sm font-medium text-gray-900">
 																{
 																	result.athlete_name
 																}
 															</div>
 														</td>
 														<td className="px-4 py-4 whitespace-nowrap">
-															<div className="text-sm text-gray-600 dark:text-gray-400">
+															<div className="text-sm text-gray-600">
 																{result.athlete_club ||
 																	"-"}
 															</div>
 														</td>
 														<td className="px-4 py-4 whitespace-nowrap text-right">
-															<div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+															<div className="text-lg font-bold text-gray-900">
 																{result.score?.toFixed(
 																	2,
 																) ||
@@ -234,17 +234,18 @@ export default function EventResultsPage() {
 								{group.results
 									.length ===
 									0 && (
-									<div className="p-8 text-center text-gray-600 dark:text-gray-400">
+									<div className="p-8 text-center text-gray-600">
 										Noch
 										keine
 										Ergebnisse
 										vorhanden
 									</div>
 								)}
-							</div>
-						))}
-					</div>
-				)}
+								</div>
+							))}
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);
