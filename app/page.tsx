@@ -9,6 +9,8 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Container from "@mui/material/Container";
 import CircularProgress from "@mui/material/CircularProgress";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 interface Event {
   id: number;
@@ -47,6 +49,9 @@ export default function Home() {
     return `/events/${year}/${slug}`;
   };
 
+  const theme = useTheme();
+  const isSm = useMediaQuery(theme.breakpoints.down("md"));
+
   return (
     <Box
       sx={{
@@ -55,9 +60,9 @@ export default function Home() {
         backgroundColor: "background.default",
       }}
     >
-      <Container maxWidth="lg">
+      <Container maxWidth="lg" sx={{ padding: 0 }}>
         <Typography
-          variant="h3"
+          variant={isSm ? "h4" : "h3"}
           sx={{
             marginBottom: "32px",
             fontWeight: "bold",
