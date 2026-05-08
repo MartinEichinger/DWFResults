@@ -12,18 +12,26 @@ import Button from "@mui/material/Button";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResultCard from "@/app/components/card";
 
-interface Result {
+export interface Result {
   id: number;
-  athlete_club: string;
+  group_id: number;
   athlete_id: number;
   athlete_name: string;
-  created_at: string;
-  group_id: number;
-  mainrefereededuction: number;
+  athlete_club: string;
+  rank: number | null;
+  score: number | null;
+  rating1: number | null;
+  rating2: number | null;
+  rating3: number | null;
+  rating4: number | null;
+  rating5: number | null;
+  rating6: number | null;
+  rating7: number | null;
+  rating8: number | null;
+  standarddeviation: number | null;
+  mainrefereededuction: number | null;
   mainrefereedeductionjustification: string | null;
   notshowedup: number;
-  rank: number;
-  score: number;
 }
 
 interface Group {
@@ -124,13 +132,23 @@ export default function EventResultsPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        padding: { xs: "16px", lg: "56px" },
+        padding: { xs: "0px 16px", lg: "0px 56px" },
         backgroundColor: "background.default",
       }}
     >
       <Container maxWidth="xl">
         {/* Header */}
-        <Box sx={{ marginBottom: "32px" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            position: "sticky",
+            marginBottom: "16px 0 32px",
+            top: "0",
+            zIndex: "1",
+            bgcolor: "background.default",
+          }}
+        >
           <Link
             href="/"
             style={{
@@ -178,12 +196,10 @@ export default function EventResultsPage() {
           <Box
             sx={{
               display: "flex",
-              flexDirection: "row",
               flexWrap: "wrap",
-              gap: {
-                xs: "8px",
-                sm: "16px",
-              },
+              flex: 1,
+              overflowY: "auto",
+              paddingY: "0px",
             }}
           >
             {groups.map((group, index) => (
@@ -199,7 +215,7 @@ export default function EventResultsPage() {
                   flex: "1 1 0px",
                   minWidth: {
                     xs: "100%",
-                    md: "calc(50% - 16px)",
+                    md: "calc(50% - 32px)",
                   },
                 }}
               >

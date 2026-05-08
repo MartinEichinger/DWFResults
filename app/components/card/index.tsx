@@ -4,22 +4,48 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import { formatTime } from "@/app/utilities/formatTime";
+import { Result } from "@/app/events/[year]/[slug]/page";
 
-interface ResultEntry {
+/* interface ResultEntry {
   rank?: number;
   athlete_name: string;
   athlete_club?: string;
   score?: number;
-  difficulty?: number;
-  execution?: number;
-}
+  rating1: number | null;
+  rating2: number | null;
+  rating3: number | null;
+  rating4: number | null;
+  rating5: number | null;
+  rating6: number | null;
+  rating7: number | null;
+  rating8: number | null;
+  standarddeviation: number;
+} */
 
 interface ResultCardProps {
   index: number;
   title: string;
   completionTime: string;
-  entries: ResultEntry[];
+  entries: Result[];
+}
+
+function displayRatings(entries: Result) {
+  console.log("displayRatings: ", entries);
+  return [
+    ["HS", entries.rating1],
+    ["S1", entries.rating2],
+    ["S2", entries.rating3],
+    ["S3", entries.rating4],
+    ["S4", entries.rating5],
+    ["S5", entries.rating6],
+    ["S6", entries.rating7],
+    ["S7", entries.rating8],
+  ]
+    .filter(([, rating]) => rating !== null)
+    .map(([label, rating]) => `${label}: ${rating}`)
+    .join(" - ");
 }
 
 export default function ResultCard({ index, title, completionTime, entries }: ResultCardProps) {
@@ -44,7 +70,7 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
               bgcolor: "primary.main",
             }}
           >
-            <EmojiEventsIcon />
+            {completionTime !== null ? <EmojiEventsIcon /> : `${index + 1}`}
           </Avatar>
           <Box sx={{ display: "flex", flexDirection: "column" }}>
             <Typography
@@ -80,8 +106,8 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
                 flexDirection: "row",
                 justifyContent: "space-between",
                 alignItems: "center",
-                margin: "8px 0px",
-                padding: "8px",
+                margin: "0px",
+                padding: "4px",
                 borderRadius: "4px",
               }}
               key={idx}
@@ -104,7 +130,7 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
                     fontWeight: "bold",
                   }}
                 >
-                  {entry.rank || "-"}
+                  {completionTime ? entry.rank : <PersonOutlineOutlinedIcon />}
                 </Avatar>
                 <Box>
                   <Typography
@@ -114,17 +140,19 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
                       fontWeight: "500",
                     }}
                   >
-                    {entry.athlete_name}
+                    {entry.athlete_name} - {entry.athlete_club}
                   </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: "text.secondary",
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    {entry.athlete_club || "-"}
-                  </Typography>
+                  {completionTime !== null && (
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        fontSize: "0.8rem",
+                      }}
+                    >
+                      {displayRatings(entry)}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
               <Box
@@ -144,19 +172,6 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
                 >
                   {entry.score?.toFixed(2) || "-"}
                 </Typography>
-                {(entry.difficulty !== undefined || entry.execution !== undefined) && (
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: "text.secondary",
-                      fontSize: "0.7rem",
-                    }}
-                  >
-                    {entry.difficulty !== undefined && `S: ${entry.difficulty.toFixed(2)}`}
-                    {entry.difficulty !== undefined && entry.execution !== undefined && " | "}
-                    {entry.execution !== undefined && `A: ${entry.execution.toFixed(2)}`}
-                  </Typography>
-                )}
               </Box>
             </Box>
           ))}
