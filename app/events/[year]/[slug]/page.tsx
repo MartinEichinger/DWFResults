@@ -11,6 +11,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Button from "@mui/material/Button";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResultCard from "@/app/components/card";
+import { useTheme } from "@mui/material/styles";
+import useMediaQuery from "@mui/material/useMediaQuery";
 
 export interface Result {
   id: number;
@@ -62,6 +64,10 @@ export default function EventResultsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const theme = useTheme();
+  const isSm = useMediaQuery(theme.breakpoints.down("md"));
+  const isXs = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -134,19 +140,19 @@ export default function EventResultsPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        padding: { xs: "0px 16px", lg: "0px 56px" },
+        padding: { xs: "16px 16px", lg: "56px 56px" },
         backgroundColor: "background.default",
       }}
     >
-      <Container maxWidth="xl">
+      <Container maxWidth="xl" sx={{ padding: { xs: "0px", lg: "0px 16px" } }}>
         {/* Header */}
         <Box
           sx={{
             display: "flex",
             flexDirection: "column",
             position: "sticky",
-            marginBottom: "16px 0 32px",
-            top: "0",
+            paddingTop: { xs: "0px", md: "16px" },
+            top: "0px",
             zIndex: "1",
             bgcolor: "background.default",
           }}
@@ -168,7 +174,7 @@ export default function EventResultsPage() {
             </Button>
           </Link>
           <Typography
-            variant="h3"
+            variant={isSm ? "h4" : "h3"}
             sx={{
               fontWeight: "bold",
               marginBottom: "8px",
