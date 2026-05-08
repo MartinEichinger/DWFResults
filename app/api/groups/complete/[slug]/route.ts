@@ -33,6 +33,8 @@ type CompleteGroupPayload = {
   groupTitle?: string;
   startgroupId?: number | string;
   actuallycompleted?: string | Date | null;
+  starttime: string | Date;
+  areaSensitiveStartingPlace: string | null;
   results?: CompleteResultPayload[];
 };
 
@@ -126,11 +128,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
       const groupResult = await db.execute({
         sql: `
-				INSERT INTO groups (event_id, start_group_id, start_group_title, actually_completed)
-				VALUES (?, ?, ?, ?)
+				INSERT INTO groups (event_id, start_group_id, start_group_title, actually_completed, start_time, area_sensitive_starting_place)
+				VALUES (?, ?, ?, ?, ?, ?)
 				ON CONFLICT DO NOTHING
 			`,
-        args: [eventId, startGroupId, groupTitle, toSqlArg(group.actuallycompleted ?? null)],
+        args: [
+          eventId,
+          startGroupId,
+          groupTitle,
+          toSqlArg(group.actuallycompleted ?? null),
+          toSqlArg(group.starttime ?? null),
+          group.areaSensitiveStartingPlace,
+        ],
       });
 
       let groupId = groupResult.lastInsertRowid ? toRequiredInteger(groupResult.lastInsertRowid, "group id") : null;

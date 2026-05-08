@@ -26,6 +26,8 @@ export async function initDatabase() {
       start_group_id INTEGER NOT NULL,
       start_group_title TEXT NOT NULL,
       actually_completed DATETIME,
+      start_time DATETIME,
+      area_sensitive_starting_place TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (event_id) REFERENCES events(id)
     )

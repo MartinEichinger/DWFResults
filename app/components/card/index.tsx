@@ -27,7 +27,9 @@ import { Result } from "@/app/events/[year]/[slug]/page";
 interface ResultCardProps {
   index: number;
   title: string;
+  startingPlace: string;
   completionTime: string;
+  startTime: string;
   entries: Result[];
 }
 
@@ -48,7 +50,7 @@ function displayRatings(entries: Result) {
     .join(" - ");
 }
 
-export default function ResultCard({ index, title, completionTime, entries }: ResultCardProps) {
+export default function ResultCard({ index, title, startingPlace, startTime, completionTime, entries }: ResultCardProps) {
   return (
     <Card
       variant="outlined"
@@ -62,15 +64,15 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
         flex: "1 1 0px",
       }}
     >
-      <CardContent sx={{ padding: "8px" }}>
-        <Box sx={{ display: "flex", flexDirection: "row" }}>
+      <CardContent sx={{ padding: "0px" }}>
+        <Box sx={{ display: "flex", flexDirection: "row", bgcolor: "primary.light", padding: "8px" }}>
           <Avatar
             sx={{
               marginRight: "16px",
               bgcolor: "primary.main",
             }}
           >
-            {completionTime !== null ? <EmojiEventsIcon /> : `${index + 1}`}
+            {completionTime !== null ? <EmojiEventsIcon /> : `${startingPlace}`}
           </Avatar>
           <Box sx={{ display: "flex", flexDirection: "column" }}>
             <Typography
@@ -88,7 +90,7 @@ export default function ResultCard({ index, title, completionTime, entries }: Re
                 fontSize: "0.8rem",
               }}
             >
-              {formatTime(completionTime)}
+              {completionTime !== null ? `Abschluss: ${formatTime(completionTime)} Uhr` : `Geplanter Start: ${formatTime(startTime)} Uhr`}
             </Typography>
           </Box>
         </Box>

@@ -41,6 +41,8 @@ interface Group {
   event_id: number;
   start_group_id: number;
   start_group_title: string;
+  start_time: string;
+  area_sensitive_starting_place: string;
   results: Result[];
 }
 
@@ -219,7 +221,14 @@ export default function EventResultsPage() {
                   },
                 }}
               >
-                <ResultCard index={index} title={group.start_group_title} completionTime={group.actually_completed} entries={group.results} />
+                <ResultCard
+                  index={index}
+                  title={group.start_group_title}
+                  startingPlace={group.area_sensitive_starting_place}
+                  startTime={group.start_time}
+                  completionTime={group.actually_completed}
+                  entries={group.results}
+                />
               </Box>
             ))}
           </Box>
