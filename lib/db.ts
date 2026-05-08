@@ -1,13 +1,13 @@
 import { createClient } from "@libsql/client";
 
 export const db = createClient({
-	url: process.env.TURSO_DATABASE_URL || "file:local.db",
-	authToken: process.env.TURSO_AUTH_TOKEN,
+  url: process.env.TURSO_DATABASE_URL || "file:local.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
 // Initialize database schema
 export async function initDatabase() {
-	await db.execute(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -19,7 +19,7 @@ export async function initDatabase() {
     )
   `);
 
-	await db.execute(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       event_id INTEGER NOT NULL,
@@ -31,7 +31,7 @@ export async function initDatabase() {
     )
   `);
 
-	await db.execute(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS group_participants (
       group_id INTEGER NOT NULL,
       athlete_id INTEGER NOT NULL,
@@ -41,7 +41,7 @@ export async function initDatabase() {
     )
   `);
 
-	await db.execute(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS athletes (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -52,13 +52,22 @@ export async function initDatabase() {
     )
   `);
 
-	await db.execute(`
+  await db.execute(`
     CREATE TABLE IF NOT EXISTS results (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       group_id INTEGER NOT NULL,
       athlete_id INTEGER NOT NULL,
       rank INTEGER,
       score REAL,
+      rating1 REAL,
+      rating2 REAL,
+      rating3 REAL,
+      rating4 REAL,
+      rating5 REAL,
+      rating6 REAL,
+      rating7 REAL,
+      rating8 REAL,
+      standarddeviation REAL,
       mainrefereededuction REAL,
       mainrefereedeductionjustification TEXT,
       notshowedup INTEGER,
@@ -70,37 +79,37 @@ export async function initDatabase() {
 }
 
 export interface Event {
-	id: number;
-	name: string;
-	year: number;
-	slug: string;
-	date?: string;
-	location?: string;
+  id: number;
+  name: string;
+  year: number;
+  slug: string;
+  date?: string;
+  location?: string;
 }
 
 export interface Group {
-	id: number;
-	event_id: number;
-	start_group_id: number;
-	start_group_title: string;
-	actually_completed?: string;
+  id: number;
+  event_id: number;
+  start_group_id: number;
+  start_group_title: string;
+  actually_completed?: string;
 }
 
 export interface Athlete {
-	id: number;
-	name: string;
-	club?: string;
-	gender?: string;
-	agegroup?: string;
+  id: number;
+  name: string;
+  club?: string;
+  gender?: string;
+  agegroup?: string;
 }
 
 export interface Result {
-	id: number;
-	group_id: number;
-	athlete_id: number;
-	rank?: number;
-	score?: number;
-	mainrefereededuction?: number;
-	mainrefereedeductionjustification?: string;
-	notshowedup?: boolean;
+  id: number;
+  group_id: number;
+  athlete_id: number;
+  rank?: number;
+  score?: number;
+  mainrefereededuction?: number;
+  mainrefereedeductionjustification?: string;
+  notshowedup?: boolean;
 }
