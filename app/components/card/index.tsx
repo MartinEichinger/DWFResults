@@ -86,7 +86,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
             <Typography
               variant="body2"
               sx={{
-                color: "text.secondary",
+                color: "primary.contrastText",
                 fontSize: "0.8rem",
               }}
             >
@@ -98,7 +98,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
           sx={{
             display: "flex",
             flexDirection: "column",
-            padding: "4px 16px",
+            padding: "8px 8px",
           }}
         >
           {entries.map((entry, idx) => (
@@ -109,7 +109,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                 justifyContent: "space-between",
                 alignItems: "center",
                 margin: "0px",
-                padding: "4px",
+                padding: { xs: "4px 0px", md: "8px 16px" },
                 borderRadius: "4px",
               }}
               key={idx}
