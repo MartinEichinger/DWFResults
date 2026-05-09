@@ -13,47 +13,16 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResultCard from "@/app/components/card";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
+import { Event, Group, Result as DbResult } from "@/lib/db";
 
-export interface Result {
-  id: number;
-  group_id: number;
-  athlete_id: number;
+export interface Result extends DbResult {
   athlete_name: string;
-  athlete_club: string;
-  rank: number | null;
-  score: number | null;
-  rating1: number | null;
-  rating2: number | null;
-  rating3: number | null;
-  rating4: number | null;
-  rating5: number | null;
-  rating6: number | null;
-  rating7: number | null;
-  rating8: number | null;
-  standarddeviation: number | null;
-  mainrefereededuction: number | null;
-  mainrefereedeductionjustification: string | null;
-  notshowedup: number;
+  athlete_club: string | null;
+  reasonForDecision?: "SD" | "HS";
 }
 
-interface Group {
-  id: number;
-  actually_completed: string;
-  created_at: string;
-  event_id: number;
-  start_group_id: number;
-  start_group_title: string;
-  start_time: string;
-  area_sensitive_starting_place: string;
+interface ImportedGroup extends Group {
   results: Result[];
-}
-
-interface Event {
-  id: number;
-  name: string;
-  year: number;
-  date?: string;
-  location?: string;
 }
 
 const debug = 1;
@@ -61,7 +30,7 @@ const debug = 1;
 export default function EventResultsPage() {
   const params = useParams();
   const [event, setEvent] = useState<Event | null>(null);
-  const [groups, setGroups] = useState<Group[]>([]);
+  const [groups, setGroups] = useState<ImportedGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +39,109 @@ export default function EventResultsPage() {
   const isXs = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
+    const getStandardDeviation = (result: Result) => result.standarddeviation ?? Number.POSITIVE_INFINITY;
+    const getMainJudgeRating = (result: Result) => result.rating1 ?? Number.NEGATIVE_INFINITY;
+    const numbersAreEqual = (left: number, right: number) => {
+      if (!Number.isFinite(left) || !Number.isFinite(right)) {
+        return left === right;
+      }
+
+      return Math.abs(left - right) < Number.EPSILON;
+    };
+
+    const annotateDecisionReasons = (groupResults: Result[]): Result[] => {
+      const annotatedResults = groupResults.map((result) => ({
+        ...result,
+        reasonForDecision: undefined,
+      }));
+
+      const resultsByScore = new Map<number, Result[]>();
+
+      annotatedResults.forEach((result) => {
+        if (result.score === null) {
+          return;
+        }
+
+        const tiedResults = resultsByScore.get(result.score) ?? [];
+        tiedResults.push(result);
+        resultsByScore.set(result.score, tiedResults);
+      });
+
+      resultsByScore.forEach((tiedResults) => {
+        if (tiedResults.length < 2) {
+          return;
+        }
+
+        const sortedResults = [...tiedResults].sort((left, right) => {
+          const leftStandardDeviation = getStandardDeviation(left);
+          const rightStandardDeviation = getStandardDeviation(right);
+
+          if (!numbersAreEqual(leftStandardDeviation, rightStandardDeviation)) {
+            return leftStandardDeviation - rightStandardDeviation;
+          }
+
+          const leftMainJudgeRating = getMainJudgeRating(left);
+          const rightMainJudgeRating = getMainJudgeRating(right);
+
+          if (!numbersAreEqual(leftMainJudgeRating, rightMainJudgeRating)) {
+            return rightMainJudgeRating - leftMainJudgeRating;
+          }
+
+          return left.id - right.id;
+        });
+
+        const decisionGroups = sortedResults.reduce<Result[][]>((groups, result) => {
+          const currentGroup = groups[groups.length - 1];
+
+          if (!currentGroup) {
+            groups.push([result]);
+            return groups;
+          }
+
+          const groupReference = currentGroup[0];
+          const hasSameStandardDeviation = numbersAreEqual(getStandardDeviation(result), getStandardDeviation(groupReference));
+          const hasSameMainJudgeRating = numbersAreEqual(getMainJudgeRating(result), getMainJudgeRating(groupReference));
+
+          if (hasSameStandardDeviation && hasSameMainJudgeRating) {
+            currentGroup.push(result);
+          } else {
+            groups.push([result]);
+          }
+
+          return groups;
+        }, []);
+
+        decisionGroups.forEach((decisionGroup, index) => {
+          const nextGroup = decisionGroups[index + 1];
+
+          if (!nextGroup) {
+            return;
+          }
+
+          const currentStandardDeviation = getStandardDeviation(decisionGroup[0]);
+          const nextStandardDeviation = getStandardDeviation(nextGroup[0]);
+
+          if (!numbersAreEqual(currentStandardDeviation, nextStandardDeviation) && Number.isFinite(currentStandardDeviation)) {
+            decisionGroup.forEach((result) => {
+              result.reasonForDecision = "SD";
+            });
+            return;
+          }
+
+          const currentMainJudgeRating = getMainJudgeRating(decisionGroup[0]);
+          const nextMainJudgeRating = getMainJudgeRating(nextGroup[0]);
+
+          if (!numbersAreEqual(currentMainJudgeRating, nextMainJudgeRating) && currentMainJudgeRating > nextMainJudgeRating) {
+            decisionGroup.forEach((result) => {
+              result.reasonForDecision = "HS";
+            });
+          }
+        });
+      });
+
+      return annotatedResults;
+    };
+
     const fetchResults = async () => {
       try {
         const slug = `${params.year}-${params.slug}`;
@@ -81,7 +153,12 @@ export default function EventResultsPage() {
 
         const data = await response.json();
         setEvent(data.event);
-        setGroups(data.groups);
+        setGroups(
+          data.groups.map((group: ImportedGroup) => ({
+            ...group,
+            results: annotateDecisionReasons(group.results),
+          })),
+        );
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {

@@ -7,6 +7,7 @@ import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import { formatTime } from "@/app/utilities/formatTime";
 import { Result } from "@/app/events/[year]/[slug]/page";
+import Badge from "@mui/material/Badge";
 
 /* interface ResultEntry {
   rank?: number;
@@ -34,7 +35,7 @@ interface ResultCardProps {
 }
 
 function displayRatings(entries: Result) {
-  console.log("displayRatings: ", entries);
+  //console.log("displayRatings: ", entries);
   return [
     ["HS", entries.rating1],
     ["S1", entries.rating2],
@@ -101,82 +102,91 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
             padding: "8px 8px",
           }}
         >
-          {entries.map((entry, idx) => (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                margin: "0px",
-                padding: { xs: "4px 0px", md: "8px 16px" },
-                borderRadius: "4px",
-              }}
-              key={idx}
-            >
+          {entries.map((entry, idx) => {
+            return (
               <Box
                 sx={{
                   display: "flex",
                   flexDirection: "row",
+                  justifyContent: "space-between",
                   alignItems: "center",
-                  flex: 1,
+                  margin: "0px",
+                  padding: { xs: "4px 0px", md: "8px 16px" },
+                  borderRadius: "4px",
                 }}
+                key={idx}
               >
-                <Avatar
+                <Box
                   sx={{
-                    width: 32,
-                    height: 32,
-                    marginRight: "12px",
-                    bgcolor: entry.rank === 1 ? "gold" : entry.rank === 2 ? "silver" : entry.rank === 3 ? "#cd7f32" : "primary.light",
-                    color: entry.rank && entry.rank <= 3 ? "black" : "white",
-                    fontWeight: "bold",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flex: 1,
                   }}
                 >
-                  {completionTime ? entry.rank : <PersonOutlineOutlinedIcon />}
-                </Avatar>
-                <Box>
+                  <Avatar
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      marginRight: "12px",
+                      border: "1px",
+                      bgcolor: entry.rank === 1 ? "gold" : entry.rank === 2 ? "silver" : entry.rank === 3 ? "#cd7f32" : "primary.light",
+                      color: entry.rank && entry.rank <= 3 ? "black" : "white",
+                      fontWeight: "semibold",
+                    }}
+                  >
+                    {completionTime !== null ? entry.notshowedup === 1 ? "nE" : entry.rank : <PersonOutlineOutlinedIcon />}
+                  </Avatar>
+                  <Box>
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        color: "text.primary",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {entry.athlete_name} - {entry.athlete_club}
+                    </Typography>
+                    {completionTime !== null && (
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: "0.8rem",
+                        }}
+                      >
+                        {displayRatings(entry)}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                  }}
+                >
                   <Typography
                     variant="body1"
                     sx={{
                       color: "text.primary",
-                      fontWeight: "500",
+                      fontWeight: "bold",
+                      fontSize: "1.1rem",
                     }}
                   >
-                    {entry.athlete_name} - {entry.athlete_club}
+                    {entry.reasonForDecision !== undefined ? (
+                      <Badge badgeContent={entry.reasonForDecision} color="primary">
+                        {entry.score?.toFixed(2)}
+                      </Badge>
+                    ) : (
+                      entry.score?.toFixed(2) || "-"
+                    )}
                   </Typography>
-                  {completionTime !== null && (
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "text.secondary",
-                        fontSize: "0.8rem",
-                      }}
-                    >
-                      {displayRatings(entry)}
-                    </Typography>
-                  )}
                 </Box>
               </Box>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                }}
-              >
-                <Typography
-                  variant="body1"
-                  sx={{
-                    color: "text.primary",
-                    fontWeight: "bold",
-                    fontSize: "1.1rem",
-                  }}
-                >
-                  {entry.score?.toFixed(2) || "-"}
-                </Typography>
-              </Box>
-            </Box>
-          ))}
+            );
+          })}
         </Box>
       </CardContent>
     </Card>

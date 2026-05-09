@@ -94,7 +94,10 @@ export interface Group {
   event_id: number;
   start_group_id: number;
   start_group_title: string;
-  actually_completed?: string;
+  actually_completed: string;
+  start_time: string;
+  area_sensitive_starting_place: string;
+  created_at: string;
 }
 
 export interface Athlete {
@@ -109,9 +112,19 @@ export interface Result {
   id: number;
   group_id: number;
   athlete_id: number;
-  rank?: number;
-  score?: number;
-  mainrefereededuction?: number;
-  mainrefereedeductionjustification?: string;
-  notshowedup?: boolean;
+  rank: number | null;
+  score: number | null;
+  rating1: number | null;
+  rating2: number | null;
+  rating3: number | null;
+  rating4: number | null;
+  rating5: number | null;
+  rating6: number | null;
+  rating7: number | null;
+  rating8: number | null;
+  standarddeviation: number | null;
+  mainrefereededuction: number | null;
+  mainrefereedeductionjustification: string | null;
+  notshowedup: number | null;
+  created_at: string;
 }
