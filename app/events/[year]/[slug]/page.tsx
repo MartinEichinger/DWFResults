@@ -18,7 +18,7 @@ import { Event, Group, Result as DbResult } from "@/lib/db";
 export interface Result extends DbResult {
   athlete_name: string;
   athlete_club: string | null;
-  reasonForDecision?: "SD" | "HS";
+  reasonForDecision?: "SD" | "HS" | string;
 }
 
 interface ImportedGroup extends Group {
@@ -41,6 +41,8 @@ export default function EventResultsPage() {
   useEffect(() => {
     const getStandardDeviation = (result: Result) => result.standarddeviation ?? Number.POSITIVE_INFINITY;
     const getMainJudgeRating = (result: Result) => result.rating1 ?? Number.NEGATIVE_INFINITY;
+    const getMainRefereeDeduction = (result: Result) =>
+      result.mainrefereededuction !== null && result.mainrefereededuction > 0 ? `${result.mainrefereededuction}` : null;
     const numbersAreEqual = (left: number, right: number) => {
       if (!Number.isFinite(left) || !Number.isFinite(right)) {
         return left === right;
@@ -52,7 +54,7 @@ export default function EventResultsPage() {
     const annotateDecisionReasons = (groupResults: Result[]): Result[] => {
       const annotatedResults = groupResults.map((result) => ({
         ...result,
-        reasonForDecision: undefined,
+        reasonForDecision: getMainRefereeDeduction(result) ?? undefined,
       }));
 
       const resultsByScore = new Map<number, Result[]>();
@@ -123,7 +125,9 @@ export default function EventResultsPage() {
 
           if (!numbersAreEqual(currentStandardDeviation, nextStandardDeviation) && Number.isFinite(currentStandardDeviation)) {
             decisionGroup.forEach((result) => {
-              result.reasonForDecision = "SD";
+              if (result.reasonForDecision === undefined) {
+                result.reasonForDecision = "SD";
+              }
             });
             return;
           }
@@ -133,7 +137,9 @@ export default function EventResultsPage() {
 
           if (!numbersAreEqual(currentMainJudgeRating, nextMainJudgeRating) && currentMainJudgeRating > nextMainJudgeRating) {
             decisionGroup.forEach((result) => {
-              result.reasonForDecision = "HS";
+              if (result.reasonForDecision === undefined) {
+                result.reasonForDecision = "HS";
+              }
             });
           }
         });
@@ -230,7 +236,7 @@ export default function EventResultsPage() {
             position: "sticky",
             paddingTop: { xs: "0px", md: "16px" },
             top: "0px",
-            zIndex: "1",
+            zIndex: "10",
             bgcolor: "background.default",
           }}
         >

@@ -3,7 +3,6 @@ import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
-import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import { formatTime } from "@/app/utilities/formatTime";
 import { Result } from "@/app/events/[year]/[slug]/page";
@@ -25,6 +24,8 @@ import Badge from "@mui/material/Badge";
   standarddeviation: number;
 } */
 
+const debug = 0;
+
 interface ResultCardProps {
   index: number;
   title: string;
@@ -45,6 +46,7 @@ function displayRatings(entries: Result) {
     ["S5", entries.rating6],
     ["S6", entries.rating7],
     ["S7", entries.rating8],
+    [" / HS", entries.mainrefereedeductionjustification],
   ]
     .filter(([, rating]) => rating !== null)
     .map(([label, rating]) => `${label}: ${rating}`)
@@ -73,7 +75,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
               bgcolor: "primary.main",
             }}
           >
-            {completionTime !== null ? <EmojiEventsIcon /> : `${startingPlace}`}
+            {startingPlace}
           </Avatar>
           <Box sx={{ display: "flex", flexDirection: "column" }}>
             <Typography
@@ -103,6 +105,12 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
           }}
         >
           {entries.map((entry, idx) => {
+            if (debug > 0)
+              console.log(
+                "ResultCard/entry: ",
+                entry.mainrefereededuction,
+                entry.mainrefereededuction && entry.mainrefereededuction > 0 ? entry.mainrefereededuction : "-",
+              );
             return (
               <Box
                 sx={{
