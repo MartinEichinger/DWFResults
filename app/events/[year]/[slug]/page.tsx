@@ -160,10 +160,14 @@ export default function EventResultsPage() {
         const data = await response.json();
         setEvent(data.event);
         setGroups(
-          data.groups.map((group: ImportedGroup) => ({
-            ...group,
-            results: annotateDecisionReasons(group.results),
-          })),
+          data.groups
+            .map((group: ImportedGroup) => ({
+              ...group,
+              results: annotateDecisionReasons(group.results),
+            }))
+            .sort((a: ImportedGroup, b: ImportedGroup) =>
+              a.area_sensitive_starting_place.localeCompare(b.area_sensitive_starting_place, undefined, { numeric: true, sensitivity: "base" }),
+            ),
         );
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");
