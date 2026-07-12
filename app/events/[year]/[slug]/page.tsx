@@ -14,6 +14,14 @@ import ResultCard from "@/app/components/card";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { Event, Group, Result as DbResult } from "@/lib/db";
+import SelectButton from "@/app/components/selectbutton";
+import FilterChip from "@/app/components/filterchip";
+import Alert from "@mui/material/Alert";
+import AlertTitle from "@mui/material/AlertTitle";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Collapse from "@mui/material/Collapse";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 
 export interface Result extends DbResult {
   athlete_name: string;
@@ -33,6 +41,11 @@ export default function EventResultsPage() {
   const [groups, setGroups] = useState<ImportedGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [infoOpen, setInfoOpen] = useState(true);
+
+  // Filter state
+  const [athleteFilter, setAthleteFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
 
   const theme = useTheme();
   const isSm = useMediaQuery(theme.breakpoints.down("md"));
@@ -223,6 +236,23 @@ export default function EventResultsPage() {
 
   if (debug > 0) console.log("EventResultsPage: ", groups);
 
+  // Build athlete list from all groups
+  const allAthleteNames = Array.from(new Set(groups.flatMap((group) => group.results.map((r) => r.athlete_name)))).sort();
+  const athletedata = { label: "Athlet", values: ["", ...allAthleteNames] };
+
+  // Build group list from all groups
+  const allGroupNames = Array.from(new Set(groups.map((group) => group.start_group_title))).sort();
+  const groupdata = { label: "Startgruppe", values: ["", ...allGroupNames] };
+
+  // Apply filters
+  let filteredGroups = groups;
+  if (athleteFilter !== "") {
+    filteredGroups = filteredGroups.filter((group) => group.results.some((r) => r.athlete_name === athleteFilter));
+  }
+  if (groupFilter !== "") {
+    filteredGroups = filteredGroups.filter((group) => group.start_group_title === groupFilter);
+  }
+
   return (
     <Box
       sx={{
@@ -260,32 +290,95 @@ export default function EventResultsPage() {
               Zurück zur Startseite
             </Button>
           </Link>
-          <Typography
-            variant={isSm ? "h4" : "h3"}
+          <Box
             sx={{
-              fontWeight: "bold",
+              display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
+              justifyContent: "space-between",
+              alignItems: { xs: "flex-start", sm: "center" },
               marginBottom: "8px",
-              color: "primary.main",
             }}
           >
-            {event.name}
-          </Typography>
-          {event.date && (
-            <Typography variant="body1" color="text.secondary">
-              Datum: {formatDate(event.date)}
-            </Typography>
+            <Box>
+              <Typography
+                variant={isSm ? "h4" : "h3"}
+                sx={{
+                  fontWeight: "bold",
+                  marginBottom: "8px",
+                  color: "primary.main",
+                }}
+              >
+                {event.name}
+              </Typography>
+              {event.date && (
+                <Typography variant="body1" color="text.secondary">
+                  Datum: {formatDate(event.date)}
+                </Typography>
+              )}
+              {event.location && (
+                <Typography variant="body1" color="text.secondary">
+                  Ort: {event.location}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center", marginTop: { xs: "8px", sm: "0px" } }}>
+              <SelectButton setFilter={setAthleteFilter} listdata={athletedata} />
+              <SelectButton setFilter={setGroupFilter} listdata={groupdata} />
+            </Box>
+          </Box>
+          {(athleteFilter !== "" || groupFilter !== "") && (
+            <Box sx={{ display: "flex", flexDirection: "row", flexWrap: "wrap" }}>
+              {athleteFilter !== "" && <FilterChip listdata={athletedata} filter={athleteFilter} setFilter={setAthleteFilter} />}
+              {groupFilter !== "" && <FilterChip listdata={groupdata} filter={groupFilter} setFilter={setGroupFilter} />}
+            </Box>
           )}
-          {event.location && (
-            <Typography variant="body1" color="text.secondary">
-              Ort: {event.location}
-            </Typography>
-          )}
+          <Collapse in={infoOpen}>
+            <Alert
+              severity="info"
+              icon={<InfoOutlinedIcon />}
+              action={
+                <IconButton
+                  aria-label="close"
+                  color="inherit"
+                  size="small"
+                  onClick={() => {
+                    setInfoOpen(false);
+                  }}
+                >
+                  <CloseIcon fontSize="inherit" />
+                </IconButton>
+              }
+              sx={{ marginTop: "16px", marginBottom: "8px" }}
+            >
+              <AlertTitle>Erklärung der Ergebnisliste</AlertTitle>
+              <Typography variant="body2" sx={{ marginBottom: "8px" }}>
+                Die Ergebnisse werden nach Rang sortiert angezeigt. Bei Punktgleichheit werden folgende Badges zur Erklärung der
+                Rangfolge verwendet:
+              </Typography>
+              <Typography variant="body2" component="div">
+                <strong>SD</strong> (Standard Deviation): Die Standardabweichung wurde zur Ermittlung des Rangs herangezogen. Eine
+                niedrigere Standardabweichung wird bevorzugt.
+              </Typography>
+              <Typography variant="body2" component="div">
+                <strong>HS</strong> (Hauptschiedsrichter): Die Wertung des Hauptschiedsrichters wurde zur Ermittlung des Rangs
+                herangezogen. Eine höhere Wertung wird bevorzugt.
+              </Typography>
+              <Typography variant="body2" component="div">
+                <strong>Zahl</strong> (z.B. 0.3): Der Hauptschiedsrichter-Abzug wurde angewendet. Die angezeigte Zahl ist der
+                Abzugswert.
+              </Typography>
+            </Alert>
+          </Collapse>
         </Box>
 
         {/* Groups */}
         {groups.length === 0 ? (
           <Typography variant="body1" color="text.secondary">
             Noch keine Ergebnisse verfügbar.
+          </Typography>
+        ) : filteredGroups.length === 0 ? (
+          <Typography variant="body1" color="text.secondary" sx={{ marginTop: "16px" }}>
+            Keine Ergebnisse entsprechen den ausgewählten Filtern.
           </Typography>
         ) : (
           <Box
@@ -297,7 +390,7 @@ export default function EventResultsPage() {
               paddingY: "0px",
             }}
           >
-            {groups.map((group, index) => (
+            {filteredGroups.map((group, index) => (
               <Box
                 key={group.id}
                 sx={{
