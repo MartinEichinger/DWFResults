@@ -13,15 +13,13 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResultCard from "@/app/components/card";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { Event, Group, Result as DbResult } from "@/lib/db";
+import { TEvent, TStartgroup, TForm } from "@/lib/db";
 
-export interface Result extends DbResult {
-  athlete_name: string;
-  athlete_club: string | null;
+export interface Result extends TForm {
   reasonForDecision?: "SD" | "HS" | string;
 }
 
-interface ImportedGroup extends Group {
+interface ImportedGroup extends TStartgroup {
   results: Result[];
 }
 
@@ -29,7 +27,7 @@ const debug = 1;
 
 export default function EventResultsPage() {
   const params = useParams();
-  const [event, setEvent] = useState<Event | null>(null);
+  const [event, setEvent] = useState<TEvent | null>(null);
   const [groups, setGroups] = useState<ImportedGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +58,13 @@ export default function EventResultsPage() {
       const resultsByScore = new Map<number, Result[]>();
 
       annotatedResults.forEach((result) => {
-        if (result.score === null) {
+        if (result.finalscore === null || result.finalscore === undefined) {
           return;
         }
 
-        const tiedResults = resultsByScore.get(result.score) ?? [];
+        const tiedResults = resultsByScore.get(result.finalscore) ?? [];
         tiedResults.push(result);
-        resultsByScore.set(result.score, tiedResults);
+        resultsByScore.set(result.finalscore, tiedResults);
       });
 
       resultsByScore.forEach((tiedResults) => {
@@ -148,6 +146,20 @@ export default function EventResultsPage() {
       return annotatedResults;
     };
 
+    const flattenForms = (group: TStartgroup): Result[] =>
+      (group.categories ?? [])
+        .flatMap((category) => category.forms ?? [])
+        .sort((left, right) => {
+          const leftPlacement = left.placement ?? Number.POSITIVE_INFINITY;
+          const rightPlacement = right.placement ?? Number.POSITIVE_INFINITY;
+
+          if (leftPlacement !== rightPlacement) {
+            return leftPlacement - rightPlacement;
+          }
+
+          return (left.startingorder ?? Number.POSITIVE_INFINITY) - (right.startingorder ?? Number.POSITIVE_INFINITY);
+        });
+
     const fetchResults = async () => {
       try {
         const slug = `${params.year}-${params.slug}`;
@@ -158,15 +170,16 @@ export default function EventResultsPage() {
         }
 
         const data = await response.json();
+        console.log("Debug: ", data.groups);
         setEvent(data.event);
         setGroups(
-          data.groups
-            .map((group: ImportedGroup) => ({
+          (data.groups as TStartgroup[])
+            .map((group) => ({
               ...group,
-              results: annotateDecisionReasons(group.results),
+              results: annotateDecisionReasons(flattenForms(group)),
             }))
-            .sort((a: ImportedGroup, b: ImportedGroup) =>
-              a.area_sensitive_starting_place.localeCompare(b.area_sensitive_starting_place, undefined, { numeric: true, sensitivity: "base" }),
+            .sort((a, b) =>
+              (a.areaSensitiveStartingPlace ?? "").localeCompare(b.areaSensitiveStartingPlace ?? "", undefined, { numeric: true, sensitivity: "base" }),
             ),
         );
       } catch (err) {
@@ -316,10 +329,10 @@ export default function EventResultsPage() {
               >
                 <ResultCard
                   index={index}
-                  title={group.start_group_title}
-                  startingPlace={group.area_sensitive_starting_place}
-                  startTime={group.start_time}
-                  completionTime={group.actually_completed}
+                  title={group.startgroupname}
+                  startingPlace={group.areaSensitiveStartingPlace}
+                  startTime={group.starttime}
+                  completionTime={group.actuallycompleted}
                   entries={group.results}
                 />
               </Box>

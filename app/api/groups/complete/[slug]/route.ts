@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { db, initDatabase } from "@/lib/db";
+import { db, initDatabase, TStartgroup } from "@/lib/db";
 
 const debug = 0;
 
 type SqlArg = string | number | bigint | boolean | Uint8Array | ArrayBuffer | Date | null;
 
-type CompleteResultPayload = {
+/* type CompleteResultPayload = {
   athlete_id?: number | string;
   id?: number | string;
   name?: string;
@@ -27,16 +27,16 @@ type CompleteResultPayload = {
   notshowedup?: boolean | null;
   mainrefereededuction?: number | string | null;
   mainrefereedeductionjustification?: string | null;
-};
+}; */
 
-type CompleteGroupPayload = {
-  groupTitle?: string;
+/* type CompleteGroupPayload = {
+  startGroupName?: string;
   startgroupId?: number | string;
   actuallycompleted?: string | Date | null;
   starttime: string | Date;
   areaSensitiveStartingPlace: string | null;
   results?: CompleteResultPayload[];
-};
+}; */
 
 function toSqlArg(value: unknown): SqlArg {
   if (value === undefined || value === null) {
@@ -68,7 +68,7 @@ function toRequiredInteger(value: unknown, label: string): number {
   return numericValue;
 }
 
-function toOptionalNumber(value: unknown): number | null {
+/* function toOptionalNumber(value: unknown): number | null {
   if (value === undefined || value === null || value === "") {
     return null;
   }
@@ -80,7 +80,7 @@ function toOptionalNumber(value: unknown): number | null {
   }
 
   return numericValue;
-}
+} */
 
 // API endpoint for external data import
 // Accepts JSON data with events, groups, athletes, and results
@@ -99,11 +99,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const data = (await request.json()) as { groups?: CompleteGroupPayload[] } & CompleteGroupPayload;
+    const data = (await request.json()) as { groups?: TStartgroup[] } & TStartgroup;
 
     // 1. Event anhand des Slugs finden
     const eventResult = await db.execute({
-      sql: "SELECT id FROM events WHERE slug = ?",
+      sql: "SELECT id FROM a_events WHERE slug = ?",
       args: [slug],
     });
 
@@ -116,112 +116,245 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     // 2. Gruppe einfügen oder aktualisieren
     const groups = Array.isArray(data.groups) ? data.groups : [data];
 
-    for (const group of groups) {
-      const startGroupId = toRequiredInteger(group.startgroupId, "group startgroupId");
-      const groupTitle = typeof group.groupTitle === "string" ? group.groupTitle.trim() : "";
+    if (debug > 0) console.log("groups/complete/startgroup: ", groups[0]);
 
-      if (!groupTitle) {
-        throw new TypeError("Missing groupTitle");
+    for (const group of groups) {
+      const startGroupId = toRequiredInteger(group.id, "group startgroupId");
+      const startGroupName = typeof group.startgroupname === "string" ? group.startgroupname.trim() : "";
+
+      if (!startGroupName) {
+        throw new TypeError("Missing startGroupName");
       }
 
-      if (debug > 0) console.log("groups/complete/POST-group: ", group);
-
-      const groupResult = await db.execute({
+      const startGroupResult = await db.execute({
         sql: `
-				INSERT INTO groups (event_id, start_group_id, start_group_title, actually_completed, start_time, area_sensitive_starting_place)
-				VALUES (?, ?, ?, ?, ?, ?)
+				INSERT INTO a_startgroups (event_id, startgroup_id, actuallycompleted, areasensitivestartingplace, competitionarea, plannedendtime, simultaneousstarter, startgroupname, starttime)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT DO NOTHING
 			`,
         args: [
           eventId,
           startGroupId,
-          groupTitle,
-          toSqlArg(group.actuallycompleted ?? null),
-          toSqlArg(group.starttime ?? null),
-          group.areaSensitiveStartingPlace,
+          toSqlArg(group.actuallycompleted),
+          toSqlArg(group.areaSensitiveStartingPlace),
+          toSqlArg(group.competitionarea),
+          toSqlArg(group.plannedendtime),
+          toSqlArg(group.simultaneousstarter),
+          toSqlArg(group.startgroupname),
+          toSqlArg(group.starttime),
         ],
       });
 
-      let groupId = groupResult.lastInsertRowid ? toRequiredInteger(groupResult.lastInsertRowid, "group id") : null;
+      let lastStartGroupId = startGroupResult.lastInsertRowid ? toRequiredInteger(startGroupResult.lastInsertRowid, "start group id") : null;
 
-      if (groupId === null) {
-        const existingGroup = await db.execute({
+      if (lastStartGroupId === null) {
+        const existingStartGroup = await db.execute({
           sql: `
 				SELECT id
-				FROM groups
-				WHERE event_id = ? AND start_group_id = ?
+				FROM a_startgroups
+				WHERE event_id = ? AND startgroup_id = ?
 				ORDER BY id DESC
 				LIMIT 1
 			`,
           args: [eventId, startGroupId],
         });
 
-        if (existingGroup.rows.length === 0) {
-          throw new Error(`Could not resolve group id for start group ${startGroupId}`);
+        if (existingStartGroup.rows.length === 0) {
+          throw new Error(`Could not resolve startgroup id for event ${eventId}`);
         }
 
-        groupId = toRequiredInteger(existingGroup.rows[0].id, "group id");
+        lastStartGroupId = toRequiredInteger(existingStartGroup.rows[0].id, "startgroup id");
       }
 
-      if (!Array.isArray(group.results)) {
+      if (!Array.isArray(group.categories)) {
         continue;
       }
 
-      for (const participant of group.results) {
-        const athleteId = toRequiredInteger(participant.athlete_id ?? participant.id, "participant athlete_id");
-        const athleteName = typeof participant.name === "string" ? participant.name.trim() : "";
+      if (debug > 0) console.log("groups/complete/category: ", group.categories[0], lastStartGroupId);
 
-        if (!athleteName) {
-          throw new TypeError(`Missing athlete name for athlete ${athleteId}`);
+      for (const category of group.categories) {
+        const categoryId = toRequiredInteger(category.id, "category id");
+        const categoryName = typeof category.categoryname === "string" ? category.categoryname.trim() : "";
+
+        if (!categoryName) {
+          throw new TypeError(`Missing category name for category ${categoryId}`);
         }
 
-        await db.execute({
+        const categoryResult = await db.execute({
           sql: `
-            INSERT INTO athletes (id, name, club, gender, agegroup)
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-              name = excluded.name,
-              club = excluded.club,
-              gender = excluded.gender,
-              agegroup = excluded.agegroup
-          `,
-          args: [athleteId, athleteName, toSqlArg(participant.club ?? null), toSqlArg(participant.gender ?? null), toSqlArg(participant.agegroup ?? null)],
-        });
-
-        await db.execute({
-          sql: `
-            INSERT INTO group_participants (group_id, athlete_id)
-            VALUES (?, ?)
-            ON CONFLICT DO NOTHING
-          `,
-          args: [groupId, athleteId],
-        });
-
-        await db.execute({
-          sql: `
-            INSERT INTO results (group_id, athlete_id, rank, score, rating1, rating2, rating3, rating4, rating5, rating6, rating7, rating8, standarddeviation, notshowedup, mainrefereededuction, mainrefereedeductionjustification)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO a_categories (startgroup_id, category_id, agegroup, categoryname, gender, timelimit)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT DO NOTHING
           `,
           args: [
-            groupId,
-            athleteId,
-            toOptionalNumber(participant.rank ?? participant.placement),
-            toOptionalNumber(participant.finalscore),
-            toOptionalNumber(participant.rating1),
-            toOptionalNumber(participant.rating2),
-            toOptionalNumber(participant.rating3),
-            toOptionalNumber(participant.rating4),
-            toOptionalNumber(participant.rating5),
-            toOptionalNumber(participant.rating6),
-            toOptionalNumber(participant.rating7),
-            toOptionalNumber(participant.rating8),
-            toOptionalNumber(participant.standarddeviation),
-            participant.notshowedup ?? false,
-            toOptionalNumber(participant.mainrefereededuction),
-            toSqlArg(participant.mainrefereedeductionjustification ?? null),
+            lastStartGroupId,
+            toSqlArg(category.id),
+            toSqlArg(category.agegroup),
+            toSqlArg(category.categoryname),
+            toSqlArg(category.gender),
+            toSqlArg(category.timelimit),
           ],
         });
+
+        let lastCategoryId = categoryResult.lastInsertRowid ? toRequiredInteger(categoryResult.lastInsertRowid, "category id") : null;
+
+        if (lastCategoryId === null) {
+          const existingCategory = await db.execute({
+            sql: `
+              SELECT id
+              FROM a_categories
+              WHERE startgroup_id = ? AND category_id = ?
+              ORDER BY id DESC
+              LIMIT 1
+            `,
+            args: [startGroupId, categoryId],
+          });
+
+          if (existingCategory.rows.length === 0) {
+            throw new Error(`Could not resolve category id for start group ${startGroupId}`);
+          }
+
+          lastCategoryId = toRequiredInteger(existingCategory.rows[0].id, "category id");
+        }
+
+        if (!Array.isArray(category.forms)) {
+          continue;
+        }
+
+        if (debug > 0) console.log("groups/complete/form: ", category.forms[0], lastCategoryId);
+
+        for (const form of category.forms) {
+          const formId = toRequiredInteger(form.id, "form id");
+          const formName = typeof form.categoryname === "string" ? form.categoryname.trim() : "";
+
+          if (!formName) {
+            throw new TypeError(`Missing form name for form ${formId}`);
+          }
+
+          const formResult = await db.execute({
+            sql: `
+            INSERT INTO a_forms (category_id, form_id, agegroup, categoryname, club, depreferee1id, depreferee2id, depreferee3id, depreferee4id, endingtime, finalscore, gender, mainrefereededuction, mainrefereedeductionjustification, name, notshowedup, placement,rating1,rating2,rating3,rating4,rating5,rating6,rating7,rating8,standarddeviation,startingorder,startingtime)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT DO NOTHING
+          `,
+            args: [
+              lastCategoryId,
+              formId,
+              toSqlArg(form.agegroup),
+              toSqlArg(form.categoryname),
+              toSqlArg(form.club),
+              toSqlArg(form.depreferee1id),
+              toSqlArg(form.depreferee2id),
+              toSqlArg(form.depreferee3id),
+              toSqlArg(form.depreferee4id),
+              toSqlArg(form.endingtime),
+              toSqlArg(form.finalscore),
+              toSqlArg(form.gender),
+              toSqlArg(form.mainrefereededuction),
+              toSqlArg(form.mainrefereedeductionjustification),
+              toSqlArg(form.name),
+              toSqlArg(form.notshowedup),
+              toSqlArg(form.placement),
+              toSqlArg(form.rating1),
+              toSqlArg(form.rating2),
+              toSqlArg(form.rating3),
+              toSqlArg(form.rating4),
+              toSqlArg(form.rating5),
+              toSqlArg(form.rating6),
+              toSqlArg(form.rating7),
+              toSqlArg(form.rating8),
+              toSqlArg(form.standarddeviation),
+              toSqlArg(form.startingorder),
+              toSqlArg(form.startingtime),
+            ],
+          });
+
+          let lastFormId = formResult.lastInsertRowid ? toRequiredInteger(formResult.lastInsertRowid, "form id") : null;
+
+          if (lastFormId === null) {
+            const existingForm = await db.execute({
+              sql: `
+              SELECT id
+              FROM a_forms
+              WHERE form_id = ? AND category_id = ?
+              ORDER BY id DESC
+              LIMIT 1
+            `,
+              args: [formId, categoryId],
+            });
+
+            if (existingForm.rows.length === 0) {
+              throw new Error(`Could not resolve form id for category ${categoryId}`);
+            }
+
+            lastFormId = toRequiredInteger(existingForm.rows[0].id, "form id");
+          }
+
+          if (!Array.isArray(form.participants)) {
+            continue;
+          }
+
+          if (debug > 0) console.log("groups/complete/participants: ", form.participants[0], lastFormId);
+
+          for (const participant of form.participants) {
+            const participantId = toRequiredInteger(participant.id, "participant id");
+            const participantName = typeof participant.name === "string" ? participant.name.trim() : "";
+
+            if (!participantName) {
+              throw new TypeError(`Missing participant name for participant ${participantId}`);
+            }
+
+            const participantResult = await db.execute({
+              sql: `
+                INSERT INTO a_participants (participant_id, forename, surname, name, club, gender)
+                VALUES (?,?,?,?,?,?)
+                ON CONFLICT DO NOTHING
+              `,
+              args: [
+                participantId,
+                toSqlArg(participant.forename),
+                toSqlArg(participant.surname),
+                toSqlArg(participant.name),
+                toSqlArg(participant.club),
+                toSqlArg(participant.gender),
+              ],
+            });
+
+            let lastParticipantId = participantResult.lastInsertRowid ? toRequiredInteger(participantResult.lastInsertRowid, "participant id") : null;
+
+            if (lastParticipantId === null) {
+              const existingParticipant = await db.execute({
+                sql: `
+                  SELECT id
+                  FROM a_participants
+                  WHERE participant_id = ?
+                  ORDER BY id DESC
+                  LIMIT 1
+                `,
+                args: [participantId],
+              });
+
+              if (existingParticipant.rows.length === 0) {
+                throw new Error(`Could not resolve participant id for participant ${participantId}`);
+              }
+
+              lastParticipantId = toRequiredInteger(existingParticipant.rows[0].id, "form id");
+            }
+
+            if (!Array.isArray(form.participants)) {
+              continue;
+            }
+
+            await db.execute({
+              sql: `
+                INSERT INTO a_forms_participants (form_id, participant_id)
+                VALUES (?, ?)
+                ON CONFLICT DO NOTHING
+              `,
+              args: [lastFormId, lastParticipantId],
+            });
+          }
+        }
       }
     }
 

@@ -8,35 +8,18 @@ import { formatTime } from "@/app/utilities/formatTime";
 import { Result } from "@/app/events/[year]/[slug]/page";
 import Badge from "@mui/material/Badge";
 
-/* interface ResultEntry {
-  rank?: number;
-  athlete_name: string;
-  athlete_club?: string;
-  score?: number;
-  rating1: number | null;
-  rating2: number | null;
-  rating3: number | null;
-  rating4: number | null;
-  rating5: number | null;
-  rating6: number | null;
-  rating7: number | null;
-  rating8: number | null;
-  standarddeviation: number;
-} */
-
 const debug = 0;
 
 interface ResultCardProps {
   index: number;
   title: string;
-  startingPlace: string;
-  completionTime: string;
-  startTime: string;
+  startingPlace: string | null;
+  completionTime: string | null;
+  startTime: string | null;
   entries: Result[];
 }
 
 function displayRatings(entries: Result) {
-  //console.log("displayRatings: ", entries);
   return [
     ["HS", entries.rating1],
     ["S1", entries.rating2],
@@ -93,7 +76,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                 fontSize: "0.8rem",
               }}
             >
-              {completionTime !== null ? `Abschluss: ${formatTime(completionTime)} Uhr` : `Geplanter Start: ${formatTime(startTime)} Uhr`}
+              {completionTime !== null ? `Abschluss: ${formatTime(completionTime)} Uhr` : `Geplanter Start: ${formatTime(startTime ?? "")} Uhr`}
             </Typography>
           </Box>
         </Box>
@@ -138,12 +121,12 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                       height: 32,
                       marginRight: "12px",
                       border: "1px",
-                      bgcolor: entry.rank === 1 ? "gold" : entry.rank === 2 ? "silver" : entry.rank === 3 ? "#cd7f32" : "primary.light",
-                      color: entry.rank && entry.rank <= 3 ? "black" : "white",
+                      bgcolor: entry.placement === 1 ? "gold" : entry.placement === 2 ? "silver" : entry.placement === 3 ? "#cd7f32" : "primary.light",
+                      color: entry.placement && entry.placement <= 3 ? "black" : "white",
                       fontWeight: "semibold",
                     }}
                   >
-                    {completionTime !== null ? entry.notshowedup === 1 ? "nE" : entry.rank : <PersonOutlineOutlinedIcon />}
+                    {completionTime !== null ? entry.notshowedup ? "nE" : entry.placement : <PersonOutlineOutlinedIcon />}
                   </Avatar>
                   <Box>
                     <Typography
@@ -153,7 +136,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                         fontWeight: "500",
                       }}
                     >
-                      {entry.athlete_name} - {entry.athlete_club}
+                      {entry.name} - {entry.club}
                     </Typography>
                     {completionTime !== null && (
                       <Typography
@@ -185,10 +168,10 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                   >
                     {entry.reasonForDecision !== undefined ? (
                       <Badge badgeContent={entry.reasonForDecision} color="primary">
-                        {entry.score?.toFixed(2)}
+                        {entry.finalscore?.toFixed(2)}
                       </Badge>
                     ) : (
-                      entry.score?.toFixed(2) || "-"
+                      entry.finalscore?.toFixed(2) || "-"
                     )}
                   </Typography>
                 </Box>
