@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDate } from "@/app/utilities/formatDate";
@@ -11,6 +11,10 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Button from "@mui/material/Button";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResultCard from "@/app/components/card";
+import FilterChip from "@/app/components/filterchip";
+import FilterHeadline from "@/app/components/filterheadline";
+import SelectButton from "@/app/components/selectbutton";
+import Collapse from "@mui/material/Collapse";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { TStartgroup, TForm } from "@/lib/db";
@@ -18,6 +22,13 @@ import { selectEventResults } from "@/lib/store";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { fetchEventResults } from "@/lib/store/eventResultsSlice";
 import { useEventResultsLiveUpdates } from "@/app/hooks/useEventResultsLiveUpdates";
+import useFilterState, { FilterDefinition } from "@/app/utilities/useFilterState";
+import extractAgegroup from "@/app/utilities/extractAgegroup";
+import extractGender from "@/app/utilities/extractGender";
+import extractClub from "@/app/utilities/extractClub";
+import { extractCategoryNames, extractParticipant } from "@/app/utilities/extractForms";
+import extractStartTime from "@/app/utilities/extractStartTime";
+import { extractCompArea } from "@/app/utilities/extractCompetitionAreas";
 
 export interface Result extends TForm {
   reasonForDecision?: "SD" | "HS" | string;
@@ -158,9 +169,18 @@ const buildGroups = (groups: TStartgroup[]): ImportedGroup[] =>
       ...group,
       results: annotateDecisionReasons(flattenForms(group)),
     }))
-    .sort((a, b) =>
-      (a.areaSensitiveStartingPlace ?? "").localeCompare(b.areaSensitiveStartingPlace ?? "", undefined, { numeric: true, sensitivity: "base" }),
-    );
+    .sort((a, b) => (a.areaSensitiveStartingPlace ?? "").localeCompare(b.areaSensitiveStartingPlace ?? "", undefined, { numeric: true, sensitivity: "base" }));
+
+// Define the available filters and how each one derives its options and matching values.
+const filterDefinitions: FilterDefinition<ImportedGroup>[] = [
+  { id: "competitionarea", label: "Wettkampffläche", extract: extractCompArea },
+  { id: "starttime", label: "Startzeit", extract: extractStartTime },
+  { id: "category", label: "Kategorie", extract: extractCategoryNames },
+  { id: "agegroup", label: "Altersgruppe", extract: extractAgegroup },
+  { id: "gender", label: "Geschlecht", extract: extractGender },
+  { id: "club", label: "Verein", extract: extractClub },
+  { id: "participant", label: "Teilnehmer", extract: extractParticipant },
+];
 
 export default function EventResultsPage() {
   const params = useParams();
@@ -190,6 +210,10 @@ export default function EventResultsPage() {
   useEventResultsLiveUpdates(slug);
 
   const groups = useMemo(() => buildGroups(eventResults?.groups ?? []), [eventResults?.groups]);
+
+  // Filters for the title row, the cards below show the filtered start groups.
+  const [filterOn, setFilterOn] = useState(false);
+  const { filters, filteredItems: filteredGroups, activeFilterCount, toggleOption, clearFilters } = useFilterState(groups, filterDefinitions);
 
   if (loading) {
     return (
@@ -272,16 +296,64 @@ export default function EventResultsPage() {
               Zurück zur Startseite
             </Button>
           </Link>
-          <Typography
-            variant={isSm ? "h4" : "h3"}
+          <Box
             sx={{
-              fontWeight: "bold",
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
               marginBottom: "8px",
-              color: "primary.main",
             }}
           >
-            {event.name}
-          </Typography>
+            <Typography
+              variant={isSm ? "h4" : "h3"}
+              sx={{
+                fontWeight: "bold",
+                color: "primary.main",
+              }}
+            >
+              {event.name}
+            </Typography>
+            {filters.length > 0 && (
+              <SelectButton filterOn={filterOn} activeFilterCount={activeFilterCount} onToggle={() => setFilterOn((current) => !current)} />
+            )}
+          </Box>
+          {filters.length > 0 && (
+            <Collapse in={filterOn} unmountOnExit>
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  padding: { xs: "8px", md: "16px" },
+                  marginBottom: "8px",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  borderRadius: "4px",
+                  bgcolor: "background.paper",
+                  maxHeight: { xs: "50vh", md: "60vh" },
+                  overflowY: "auto",
+                }}
+              >
+                {filters.map((filter) => (
+                  <Box key={filter.id}>
+                    <FilterHeadline label={filter.label} selectedCount={filter.selected.length} />
+                    <Box sx={{ display: "flex", flexWrap: "wrap" }}>
+                      {filter.options.map((option) => (
+                        <FilterChip key={option} label={option} selected={filter.selected.includes(option)} onToggle={() => toggleOption(filter.id, option)} />
+                      ))}
+                    </Box>
+                  </Box>
+                ))}
+                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                  <Button variant="text" size="small" onClick={clearFilters} disabled={activeFilterCount === 0}>
+                    Filter zurücksetzen
+                  </Button>
+                </Box>
+              </Box>
+            </Collapse>
+          )}
           {event.date && (
             <Typography variant="body1" color="text.secondary">
               Datum: {formatDate(event.date)}
@@ -299,6 +371,10 @@ export default function EventResultsPage() {
           <Typography variant="body1" color="text.secondary">
             Noch keine Ergebnisse verfügbar.
           </Typography>
+        ) : filteredGroups.length === 0 ? (
+          <Typography variant="body1" color="text.secondary">
+            Keine Startgruppen für die gewählten Filter.
+          </Typography>
         ) : (
           <Box
             sx={{
@@ -309,7 +385,7 @@ export default function EventResultsPage() {
               paddingY: "0px",
             }}
           >
-            {groups.map((group, index) => (
+            {filteredGroups.map((group, index) => (
               <Box
                 key={group.id}
                 sx={{

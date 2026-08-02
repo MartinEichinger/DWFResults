@@ -8,6 +8,7 @@ Eine Next.js Webapp zur Anzeige von Wushu Wettkampfergebnissen.
 - 🗄️ Datenspeicherung in Turso Database (SQLite)
 - 🧠 Redux Store (Redux Toolkit), der die Datenbankinhalte im Browser hält
 - ⚡ Live-Aktualisierung der Anzeige bei jedem Datenbank-Update – ohne Seiten-Refresh
+- 🔎 Filter in der Titelzeile der Ergebnisseite (Wettkampffläche, Startzeit, Kategorie, Altersgruppe, Geschlecht, Verein, Teilnehmer)
 - 🔄 API für externe Datenimporte
 - 📱 Responsive Design mit Tailwind CSS
 - 🌐 Deployment auf Vercel
