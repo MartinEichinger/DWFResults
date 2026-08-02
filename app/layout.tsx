@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import MuiThemeProvider from "./ThemeProvider";
+import StoreProvider from "./StoreProvider";
 
 export const metadata: Metadata = {
   title: "DWF Wushu Competition Results",
@@ -18,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body>
-        <MuiThemeProvider>{children}</MuiThemeProvider>
+        <StoreProvider>
+          <MuiThemeProvider>{children}</MuiThemeProvider>
+        </StoreProvider>
       </body>
     </html>
   );

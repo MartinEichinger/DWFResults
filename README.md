@@ -6,6 +6,9 @@ Eine Next.js Webapp zur Anzeige von Wushu Wettkampfergebnissen.
 
 - 📊 Anzeige von Wettkampfergebnissen in übersichtlichen Tabellen
 - 🗄️ Datenspeicherung in Turso Database (SQLite)
+- 🧠 Redux Store (Redux Toolkit), der die Datenbankinhalte im Browser hält
+- ⚡ Live-Aktualisierung der Anzeige bei jedem Datenbank-Update – ohne Seiten-Refresh
+- 🔎 Filter in der Titelzeile der Ergebnisseite (Wettkampffläche, Startzeit, Kategorie, Altersgruppe, Geschlecht, Verein, Teilnehmer)
 - 🔄 API für externe Datenimporte
 - 📱 Responsive Design mit Tailwind CSS
 - 🌐 Deployment auf Vercel
@@ -95,8 +98,25 @@ Gibt alle Veranstaltungen zurück.
 ### GET /api/events/[slug]
 Gibt Details und Ergebnisse für eine spezifische Veranstaltung zurück.
 
+### GET /api/events/[slug]/stream
+Server-Sent-Events Stream. Sendet ein `update`-Event, sobald die Daten der Veranstaltung
+über eine der POST-Routes geändert wurden. Der Browser lädt daraufhin die Daten in den
+Redux Store nach, sodass die Anzeige ohne Seiten-Refresh aktuell bleibt.
+
 ### POST /api/import
 Importiert Daten von extern. Benötigt `x-api-key` Header.
+
+## Redux Store
+
+Der Redux Store (`lib/store`) hält die Daten der Datenbank (Struktur siehe `lib/db.ts`):
+
+- `events` – Liste aller Veranstaltungen (`a_events`), geladen über `GET /api/events`
+- `eventResults` – pro Slug die komplette Veranstaltung inkl. Startgruppen, Kategorien,
+  Formen und Teilnehmern, geladen über `GET /api/events/[slug]`
+
+Der Store wird über `app/StoreProvider.tsx` bereitgestellt. Die Seiten lesen ihre Daten
+ausschließlich aus dem Store. Der Hook `useEventResultsLiveUpdates` abonniert den
+SSE-Stream (mit Polling-Fallback) und lädt die Daten nach jedem Datenbank-Update neu.
 
 ## Daten importieren
 
@@ -169,6 +189,7 @@ curl -X POST http://localhost:3000/api/import \
 
 - **Framework**: Next.js 15 (App Router)
 - **Sprache**: TypeScript
+- **State Management**: Redux Toolkit / react-redux
 - **Styling**: Tailwind CSS
 - **Datenbank**: Turso (LibSQL/SQLite)
 - **Hosting**: Vercel
