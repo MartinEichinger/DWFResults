@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDate } from "@/app/utilities/formatDate";
@@ -13,7 +13,11 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ResultCard from "@/app/components/card";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import { TEvent, TStartgroup, TForm } from "@/lib/db";
+import { TStartgroup, TForm } from "@/lib/db";
+import { selectEventResults } from "@/lib/store";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { fetchEventResults } from "@/lib/store/eventResultsSlice";
+import { useEventResultsLiveUpdates } from "@/app/hooks/useEventResultsLiveUpdates";
 
 export interface Result extends TForm {
   reasonForDecision?: "SD" | "HS" | string;
@@ -25,172 +29,167 @@ interface ImportedGroup extends TStartgroup {
 
 const debug = 1;
 
+const getStandardDeviation = (result: Result) => result.standarddeviation ?? Number.POSITIVE_INFINITY;
+const getMainJudgeRating = (result: Result) => result.rating1 ?? Number.NEGATIVE_INFINITY;
+const getMainRefereeDeduction = (result: Result) =>
+  result.mainrefereededuction !== null && result.mainrefereededuction > 0 ? `${result.mainrefereededuction}` : null;
+const numbersAreEqual = (left: number, right: number) => {
+  if (!Number.isFinite(left) || !Number.isFinite(right)) {
+    return left === right;
+  }
+
+  return Math.abs(left - right) < Number.EPSILON;
+};
+
+const annotateDecisionReasons = (groupResults: Result[]): Result[] => {
+  const annotatedResults = groupResults.map((result) => ({
+    ...result,
+    reasonForDecision: getMainRefereeDeduction(result) ?? undefined,
+  }));
+
+  const resultsByScore = new Map<number, Result[]>();
+
+  annotatedResults.forEach((result) => {
+    if (result.finalscore === null || result.finalscore === undefined) {
+      return;
+    }
+
+    const tiedResults = resultsByScore.get(result.finalscore) ?? [];
+    tiedResults.push(result);
+    resultsByScore.set(result.finalscore, tiedResults);
+  });
+
+  resultsByScore.forEach((tiedResults) => {
+    if (tiedResults.length < 2) {
+      return;
+    }
+
+    const sortedResults = [...tiedResults].sort((left, right) => {
+      const leftStandardDeviation = getStandardDeviation(left);
+      const rightStandardDeviation = getStandardDeviation(right);
+
+      if (!numbersAreEqual(leftStandardDeviation, rightStandardDeviation)) {
+        return leftStandardDeviation - rightStandardDeviation;
+      }
+
+      const leftMainJudgeRating = getMainJudgeRating(left);
+      const rightMainJudgeRating = getMainJudgeRating(right);
+
+      if (!numbersAreEqual(leftMainJudgeRating, rightMainJudgeRating)) {
+        return rightMainJudgeRating - leftMainJudgeRating;
+      }
+
+      return left.id - right.id;
+    });
+
+    const decisionGroups = sortedResults.reduce<Result[][]>((groups, result) => {
+      const currentGroup = groups[groups.length - 1];
+
+      if (!currentGroup) {
+        groups.push([result]);
+        return groups;
+      }
+
+      const groupReference = currentGroup[0];
+      const hasSameStandardDeviation = numbersAreEqual(getStandardDeviation(result), getStandardDeviation(groupReference));
+      const hasSameMainJudgeRating = numbersAreEqual(getMainJudgeRating(result), getMainJudgeRating(groupReference));
+
+      if (hasSameStandardDeviation && hasSameMainJudgeRating) {
+        currentGroup.push(result);
+      } else {
+        groups.push([result]);
+      }
+
+      return groups;
+    }, []);
+
+    decisionGroups.forEach((decisionGroup, index) => {
+      const nextGroup = decisionGroups[index + 1];
+
+      if (!nextGroup) {
+        return;
+      }
+
+      const currentStandardDeviation = getStandardDeviation(decisionGroup[0]);
+      const nextStandardDeviation = getStandardDeviation(nextGroup[0]);
+
+      if (!numbersAreEqual(currentStandardDeviation, nextStandardDeviation) && Number.isFinite(currentStandardDeviation)) {
+        decisionGroup.forEach((result) => {
+          if (result.reasonForDecision === undefined) {
+            result.reasonForDecision = "SD";
+          }
+        });
+        return;
+      }
+
+      const currentMainJudgeRating = getMainJudgeRating(decisionGroup[0]);
+      const nextMainJudgeRating = getMainJudgeRating(nextGroup[0]);
+
+      if (!numbersAreEqual(currentMainJudgeRating, nextMainJudgeRating) && currentMainJudgeRating > nextMainJudgeRating) {
+        decisionGroup.forEach((result) => {
+          if (result.reasonForDecision === undefined) {
+            result.reasonForDecision = "HS";
+          }
+        });
+      }
+    });
+  });
+
+  return annotatedResults;
+};
+
+const flattenForms = (group: TStartgroup): Result[] =>
+  (group.categories ?? [])
+    .flatMap((category) => category.forms ?? [])
+    .sort((left, right) => {
+      const leftPlacement = left.placement ?? Number.POSITIVE_INFINITY;
+      const rightPlacement = right.placement ?? Number.POSITIVE_INFINITY;
+
+      if (leftPlacement !== rightPlacement) {
+        return leftPlacement - rightPlacement;
+      }
+
+      return (left.startingorder ?? Number.POSITIVE_INFINITY) - (right.startingorder ?? Number.POSITIVE_INFINITY);
+    });
+
+const buildGroups = (groups: TStartgroup[]): ImportedGroup[] =>
+  groups
+    .map((group) => ({
+      ...group,
+      results: annotateDecisionReasons(flattenForms(group)),
+    }))
+    .sort((a, b) =>
+      (a.areaSensitiveStartingPlace ?? "").localeCompare(b.areaSensitiveStartingPlace ?? "", undefined, { numeric: true, sensitivity: "base" }),
+    );
+
 export default function EventResultsPage() {
   const params = useParams();
-  const [event, setEvent] = useState<TEvent | null>(null);
-  const [groups, setGroups] = useState<ImportedGroup[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const slug = `${params.year}-${params.slug}`;
+
+  // All displayed data comes from the redux store, which mirrors the database.
+  const eventResults = useAppSelector((state) => selectEventResults(state, slug));
+  const event = eventResults?.event ?? null;
+  const status = eventResults?.status ?? "idle";
+  const error = eventResults?.error ?? null;
+  const loading = status === "idle" || (status === "loading" && event === null);
 
   const theme = useTheme();
   const isSm = useMediaQuery(theme.breakpoints.down("md"));
   const isXs = useMediaQuery(theme.breakpoints.down("sm"));
 
   useEffect(() => {
-    const getStandardDeviation = (result: Result) => result.standarddeviation ?? Number.POSITIVE_INFINITY;
-    const getMainJudgeRating = (result: Result) => result.rating1 ?? Number.NEGATIVE_INFINITY;
-    const getMainRefereeDeduction = (result: Result) =>
-      result.mainrefereededuction !== null && result.mainrefereededuction > 0 ? `${result.mainrefereededuction}` : null;
-    const numbersAreEqual = (left: number, right: number) => {
-      if (!Number.isFinite(left) || !Number.isFinite(right)) {
-        return left === right;
-      }
+    if (params.year === undefined || params.slug === undefined) {
+      return;
+    }
 
-      return Math.abs(left - right) < Number.EPSILON;
-    };
+    dispatch(fetchEventResults(slug));
+  }, [dispatch, slug, params.year, params.slug]);
 
-    const annotateDecisionReasons = (groupResults: Result[]): Result[] => {
-      const annotatedResults = groupResults.map((result) => ({
-        ...result,
-        reasonForDecision: getMainRefereeDeduction(result) ?? undefined,
-      }));
+  // Keeps the store in sync with every database update done through the API routes.
+  useEventResultsLiveUpdates(slug);
 
-      const resultsByScore = new Map<number, Result[]>();
-
-      annotatedResults.forEach((result) => {
-        if (result.finalscore === null || result.finalscore === undefined) {
-          return;
-        }
-
-        const tiedResults = resultsByScore.get(result.finalscore) ?? [];
-        tiedResults.push(result);
-        resultsByScore.set(result.finalscore, tiedResults);
-      });
-
-      resultsByScore.forEach((tiedResults) => {
-        if (tiedResults.length < 2) {
-          return;
-        }
-
-        const sortedResults = [...tiedResults].sort((left, right) => {
-          const leftStandardDeviation = getStandardDeviation(left);
-          const rightStandardDeviation = getStandardDeviation(right);
-
-          if (!numbersAreEqual(leftStandardDeviation, rightStandardDeviation)) {
-            return leftStandardDeviation - rightStandardDeviation;
-          }
-
-          const leftMainJudgeRating = getMainJudgeRating(left);
-          const rightMainJudgeRating = getMainJudgeRating(right);
-
-          if (!numbersAreEqual(leftMainJudgeRating, rightMainJudgeRating)) {
-            return rightMainJudgeRating - leftMainJudgeRating;
-          }
-
-          return left.id - right.id;
-        });
-
-        const decisionGroups = sortedResults.reduce<Result[][]>((groups, result) => {
-          const currentGroup = groups[groups.length - 1];
-
-          if (!currentGroup) {
-            groups.push([result]);
-            return groups;
-          }
-
-          const groupReference = currentGroup[0];
-          const hasSameStandardDeviation = numbersAreEqual(getStandardDeviation(result), getStandardDeviation(groupReference));
-          const hasSameMainJudgeRating = numbersAreEqual(getMainJudgeRating(result), getMainJudgeRating(groupReference));
-
-          if (hasSameStandardDeviation && hasSameMainJudgeRating) {
-            currentGroup.push(result);
-          } else {
-            groups.push([result]);
-          }
-
-          return groups;
-        }, []);
-
-        decisionGroups.forEach((decisionGroup, index) => {
-          const nextGroup = decisionGroups[index + 1];
-
-          if (!nextGroup) {
-            return;
-          }
-
-          const currentStandardDeviation = getStandardDeviation(decisionGroup[0]);
-          const nextStandardDeviation = getStandardDeviation(nextGroup[0]);
-
-          if (!numbersAreEqual(currentStandardDeviation, nextStandardDeviation) && Number.isFinite(currentStandardDeviation)) {
-            decisionGroup.forEach((result) => {
-              if (result.reasonForDecision === undefined) {
-                result.reasonForDecision = "SD";
-              }
-            });
-            return;
-          }
-
-          const currentMainJudgeRating = getMainJudgeRating(decisionGroup[0]);
-          const nextMainJudgeRating = getMainJudgeRating(nextGroup[0]);
-
-          if (!numbersAreEqual(currentMainJudgeRating, nextMainJudgeRating) && currentMainJudgeRating > nextMainJudgeRating) {
-            decisionGroup.forEach((result) => {
-              if (result.reasonForDecision === undefined) {
-                result.reasonForDecision = "HS";
-              }
-            });
-          }
-        });
-      });
-
-      return annotatedResults;
-    };
-
-    const flattenForms = (group: TStartgroup): Result[] =>
-      (group.categories ?? [])
-        .flatMap((category) => category.forms ?? [])
-        .sort((left, right) => {
-          const leftPlacement = left.placement ?? Number.POSITIVE_INFINITY;
-          const rightPlacement = right.placement ?? Number.POSITIVE_INFINITY;
-
-          if (leftPlacement !== rightPlacement) {
-            return leftPlacement - rightPlacement;
-          }
-
-          return (left.startingorder ?? Number.POSITIVE_INFINITY) - (right.startingorder ?? Number.POSITIVE_INFINITY);
-        });
-
-    const fetchResults = async () => {
-      try {
-        const slug = `${params.year}-${params.slug}`;
-        const response = await fetch(`/api/events/${slug}`);
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch results");
-        }
-
-        const data = await response.json();
-        console.log("Debug: ", data.groups);
-        setEvent(data.event);
-        setGroups(
-          (data.groups as TStartgroup[])
-            .map((group) => ({
-              ...group,
-              results: annotateDecisionReasons(flattenForms(group)),
-            }))
-            .sort((a, b) =>
-              (a.areaSensitiveStartingPlace ?? "").localeCompare(b.areaSensitiveStartingPlace ?? "", undefined, { numeric: true, sensitivity: "base" }),
-            ),
-        );
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchResults();
-  }, [params.year, params.slug]);
+  const groups = useMemo(() => buildGroups(eventResults?.groups ?? []), [eventResults?.groups]);
 
   if (loading) {
     return (

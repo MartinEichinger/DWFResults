@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db, initDatabase, TStartgroup } from "@/lib/db";
+import { publishDatabaseUpdate } from "@/lib/realtime";
 
 const debug = 0;
 
@@ -294,6 +295,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         }
       }
     }
+
+    // Notify all connected clients so that their redux store is refreshed.
+    publishDatabaseUpdate(slug);
 
     return NextResponse.json({ success: true, message: "Data imported successfully" });
   } catch (error) {

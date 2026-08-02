@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { formatDate } from "./utilities/formatDate";
 import Box from "@mui/material/Box";
@@ -11,38 +11,24 @@ import Container from "@mui/material/Container";
 import CircularProgress from "@mui/material/CircularProgress";
 import { useTheme } from "@mui/material/styles";
 import useMediaQuery from "@mui/material/useMediaQuery";
-
-interface Event {
-  id: number;
-  name: string;
-  year: number;
-  slug: string;
-  date?: string;
-  location?: string;
-}
+import { TEvent } from "@/lib/db";
+import { selectEvents } from "@/lib/store";
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
+import { fetchEvents } from "@/lib/store/eventsSlice";
 
 export default function Home() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const dispatch = useAppDispatch();
+
+  // The event list is held in the redux store, which mirrors the database.
+  const { items: events, status } = useAppSelector(selectEvents);
+  const loading = status === "idle" || (status === "loading" && events.length === 0);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const response = await fetch("/api/events");
-        const data = await response.json();
-        setEvents(data.events || []);
-      } catch (error) {
-        console.error("Error fetching events:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvents();
-  }, []);
+    dispatch(fetchEvents());
+  }, [dispatch]);
 
   // Extract year from slug (format: YYYY-slug)
-  const getEventUrl = (event: Event) => {
+  const getEventUrl = (event: TEvent) => {
     const slugParts = event.slug.split("-");
     const year = slugParts[0];
     const slug = slugParts.slice(1).join("-");
