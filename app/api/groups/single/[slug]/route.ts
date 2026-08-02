@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, initDatabase, TStartgroup } from "@/lib/db";
 
-const debug = 1;
+const debug = 0;
 
 type SqlArg = string | number | bigint | boolean | Uint8Array | ArrayBuffer | Date | null;
 
