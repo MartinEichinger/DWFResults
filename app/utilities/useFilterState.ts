@@ -1,99 +1,76 @@
-import { useCallback, useMemo, useState } from "react";
+"use client";
 
-/**
- * Describes a single filter: how its options are derived from an item and which label
- * is shown in the filter bar.
- */
+import { useMemo, useState } from "react";
+
+export type FilterValues = Record<string, string>;
+
 export type FilterDefinition<T> = {
-  id: string;
+  key: string;
   label: string;
-  /** Returns all values of an item this filter can match on. */
-  extract: (item: T) => string[];
-  /** Optional custom sorting of the options, defaults to a natural (numeric aware) sort. */
-  compare?: (left: string, right: string) => number;
+  getOptions: (items: T[]) => string[];
+  getValue: (item: T) => string | string[];
 };
 
-export type Filter = {
-  id: string;
-  label: string;
-  options: string[];
-  /** The selected option, an empty string means the filter is inactive. */
-  selected: string;
+const normalizeFilterValue = (value: string | string[] | undefined | null) => {
+  if (Array.isArray(value)) {
+    return value.map((entry) =>
+      String(entry ?? "")
+        .trim()
+        .toLocaleLowerCase(),
+    );
+  }
+
+  return String(value ?? "")
+    .trim()
+    .toLocaleLowerCase();
 };
 
-export type FilterState<T> = {
-  filters: Filter[];
-  filteredItems: T[];
-  activeFilterCount: number;
-  setFilter: (filterId: string, option: string) => void;
-  clearFilters: () => void;
-};
+const useFilterState = <T>(items: T[] | undefined, definitions: FilterDefinition<T>[]) => {
+  const [values, setValues] = useState<FilterValues>({});
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
 
-const naturalCompare = (left: string, right: string) => left.localeCompare(right, "de", { numeric: true, sensitivity: "base" });
+  const activeFilters = useMemo(() => definitions.filter((definition) => Boolean(values[definition.key])), [definitions, values]);
 
-const uniqueSorted = (values: string[], compare: (left: string, right: string) => number) => Array.from(new Set(values)).sort(compare);
-
-/**
- * Generic filter state for a list of items. Options are derived from the items themselves,
- * therefore they stay in sync whenever the underlying data (redux store) changes.
- *
- * Every filter holds a single selected option, the active filters are combined with AND.
- */
-export default function useFilterState<T>(items: T[], definitions: FilterDefinition<T>[]): FilterState<T> {
-  const [selection, setSelection] = useState<Record<string, string>>({});
-
-  const filters = useMemo<Filter[]>(
-    () =>
-      definitions
-        .map((definition) => {
-          const options = uniqueSorted(
-            items.flatMap((item) => definition.extract(item)),
-            definition.compare ?? naturalCompare,
-          );
-          // Options can disappear when the data changes, a stale selection is ignored.
-          const selected = selection[definition.id] ?? "";
-
-          return {
-            id: definition.id,
-            label: definition.label,
-            options,
-            selected: options.includes(selected) ? selected : "",
-          };
-        })
-        // Filters without options (or with a single option) do not narrow anything down.
-        .filter((filter) => filter.options.length > 1),
-    [definitions, items, selection],
+  const optionsByKey = useMemo(
+    () => Object.fromEntries(definitions.map((definition) => [definition.key, definition.getOptions(safeItems)])),
+    [definitions, safeItems],
   );
 
   const filteredItems = useMemo(() => {
-    const activeFilters = filters.filter((filter) => filter.selected !== "");
+    return safeItems.filter((item) => {
+      return definitions.every((definition) => {
+        const selectedValue = values[definition.key];
+        if (!selectedValue) return true;
 
-    if (activeFilters.length === 0) {
-      return items;
-    }
+        const itemValue = definition.getValue(item);
+        const itemValues = Array.isArray(itemValue) ? itemValue : [itemValue];
+        const normalizedSelectedValue = normalizeFilterValue(selectedValue);
 
-    const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
+        return itemValues.some((value) => normalizeFilterValue(value) === normalizedSelectedValue);
+      });
+    });
+  }, [definitions, safeItems, values]);
 
-    return items.filter((item) =>
-      activeFilters.every((filter) => {
-        const definition = definitionsById.get(filter.id);
+  const setFilter = (key: string, value: string) => {
+    setValues((prev) => ({ ...prev, [key]: value }));
+  };
 
-        if (!definition) {
-          return true;
-        }
+  const clearFilter = (key: string) => {
+    setValues((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
-        return definition.extract(item).includes(filter.selected);
-      }),
-    );
-  }, [definitions, filters, items]);
+  return {
+    values,
+    setFilter,
+    clearFilter,
+    activeFilters,
+    optionsByKey,
+    filteredItems,
+  };
+};
 
-  const setFilter = useCallback((filterId: string, option: string) => {
-    setSelection((currentSelection) => ({ ...currentSelection, [filterId]: option }));
-  }, []);
-
-  const clearFilters = useCallback(() => setSelection({}), []);
-
-  const activeFilterCount = filters.reduce((count, filter) => count + (filter.selected === "" ? 0 : 1), 0);
-
-  return { filters, filteredItems, activeFilterCount, setFilter, clearFilters };
-}
+export default useFilterState;

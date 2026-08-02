@@ -23,12 +23,6 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import { fetchEventResults } from "@/lib/store/eventResultsSlice";
 import { useEventResultsLiveUpdates } from "@/app/hooks/useEventResultsLiveUpdates";
 import useFilterState, { FilterDefinition } from "@/app/utilities/useFilterState";
-import extractAgegroup from "@/app/utilities/extractAgegroup";
-import extractGender from "@/app/utilities/extractGender";
-import extractClub from "@/app/utilities/extractClub";
-import { extractCategoryNames, extractParticipant } from "@/app/utilities/extractForms";
-import extractStartTime from "@/app/utilities/extractStartTime";
-import { extractCompArea } from "@/app/utilities/extractCompetitionAreas";
 
 export interface Result extends TForm {
   reasonForDecision?: "SD" | "HS" | string;
@@ -163,6 +157,10 @@ const flattenForms = (group: TStartgroup): Result[] =>
       return (left.startingorder ?? Number.POSITIVE_INFINITY) - (right.startingorder ?? Number.POSITIVE_INFINITY);
     });
 
+const isFilledString = (value: string | null | undefined): value is string => typeof value === "string" && value.length > 0;
+
+const isNumber = (value: number | null | undefined): value is number => typeof value === "number";
+
 const buildGroups = (groups: TStartgroup[]): ImportedGroup[] =>
   groups
     .map((group) => ({
@@ -170,17 +168,6 @@ const buildGroups = (groups: TStartgroup[]): ImportedGroup[] =>
       results: annotateDecisionReasons(flattenForms(group)),
     }))
     .sort((a, b) => (a.areaSensitiveStartingPlace ?? "").localeCompare(b.areaSensitiveStartingPlace ?? "", undefined, { numeric: true, sensitivity: "base" }));
-
-// Define the available filters and how each one derives its options and matching values.
-const filterDefinitions: FilterDefinition<ImportedGroup>[] = [
-  { id: "competitionarea", label: "Wettkampffläche", extract: extractCompArea },
-  { id: "starttime", label: "Startzeit", extract: extractStartTime },
-  { id: "category", label: "Kategorie", extract: extractCategoryNames },
-  { id: "agegroup", label: "Altersgruppe", extract: extractAgegroup },
-  { id: "gender", label: "Geschlecht", extract: extractGender },
-  { id: "club", label: "Verein", extract: extractClub },
-  { id: "participant", label: "Teilnehmer", extract: extractParticipant },
-];
 
 export default function EventResultsPage() {
   const params = useParams();
@@ -211,9 +198,149 @@ export default function EventResultsPage() {
 
   const groups = useMemo(() => buildGroups(eventResults?.groups ?? []), [eventResults?.groups]);
 
+  // Define the available filters and how each one derives its options and matching value.
+  const filterDefinitions = useMemo<FilterDefinition<TStartgroup>[]>(() => {
+    return [
+      {
+        key: "club",
+        label: "Verein",
+        getOptions: (groups) => {
+          const safeGroups = Array.isArray(groups) ? groups : [];
+          const clubs = Array.from(
+            new Set(
+              safeGroups
+                .flatMap((group) =>
+                  (Array.isArray(group.categories) ? group.categories : []).flatMap((category) =>
+                    (Array.isArray(category.forms) ? category.forms : []).flatMap((form) => (form.participants ?? []).map((participant) => participant.club)),
+                  ),
+                )
+                .filter(isFilledString),
+            ),
+          );
+
+          return ["", ...clubs.sort((a, b) => a.toUpperCase().localeCompare(b.toUpperCase()))];
+        },
+        getValue: (group) => {
+          const safeCategories = Array.isArray(group.categories) ? group.categories : [];
+          const clubs = Array.from(
+            new Set(
+              safeCategories
+                .flatMap((category) =>
+                  (Array.isArray(category.forms) ? category.forms : []).flatMap((form) => (form.participants ?? []).map((participant) => participant.club)),
+                )
+                .filter(isFilledString),
+            ),
+          );
+
+          return clubs;
+        },
+      },
+      {
+        key: "name",
+        label: "Name",
+        getOptions: (groups) => {
+          const safeGroups = Array.isArray(groups) ? groups : [];
+          const names = Array.from(
+            new Set(
+              safeGroups
+                .flatMap((group) =>
+                  (Array.isArray(group.categories) ? group.categories : []).flatMap((category) =>
+                    (Array.isArray(category.forms) ? category.forms : []).flatMap((form) =>
+                      (form.participants ?? []).map((participant) => `${participant.forename ?? ""} ${participant.surname ?? ""}`.trim() || form.name),
+                    ),
+                  ),
+                )
+                .filter(isFilledString),
+            ),
+          );
+
+          return ["", ...names.sort((a, b) => a.toUpperCase().localeCompare(b.toUpperCase()))];
+        },
+        getValue: (group) => {
+          const safeCategories = Array.isArray(group.categories) ? group.categories : [];
+          const names = Array.from(
+            new Set(
+              safeCategories
+                .flatMap((category) =>
+                  (Array.isArray(category.forms) ? category.forms : []).flatMap((form) =>
+                    (form.participants ?? []).map((participant) => `${participant.forename ?? ""} ${participant.surname ?? ""}`.trim() || form.name),
+                  ),
+                )
+                .filter(isFilledString),
+            ),
+          );
+
+          return names;
+        },
+      },
+      {
+        key: "agegroup",
+        label: "Altersgruppe",
+        getOptions: (groups) => {
+          const safeGroups = Array.isArray(groups) ? groups : [];
+          const values = Array.from(
+            new Set(
+              safeGroups
+                .flatMap((group) => (Array.isArray(group.categories) ? group.categories : []).map((category) => category.agegroup))
+                .filter(isFilledString),
+            ),
+          );
+          return ["", ...values];
+        },
+        getValue: (group) => {
+          const values = Array.from(
+            new Set((Array.isArray(group.categories) ? group.categories : []).map((category) => category.agegroup).filter(isFilledString)),
+          );
+          return values;
+        },
+      },
+      {
+        key: "area",
+        label: "Fläche",
+        getOptions: (groups) => {
+          const safeGroups = Array.isArray(groups) ? groups : [];
+          const values = Array.from(new Set(safeGroups.map((group) => group.competitionarea).filter(isNumber)));
+          return ["", ...values.map((value) => String.fromCharCode(65 + value))];
+        },
+        getValue: (group) => {
+          const value = group.competitionarea;
+          return value === undefined || value === null ? "" : String.fromCharCode(65 + value);
+        },
+      },
+      {
+        key: "category",
+        label: "Kategorie",
+        getOptions: (groups) => {
+          const values = Array.from(
+            new Set(groups.flatMap((group) => group.categories?.map((category) => category.categoryname).filter(isFilledString) ?? [])),
+          );
+
+          return ["", ...values.sort((a, b) => a.toUpperCase().localeCompare(b.toUpperCase()))];
+        },
+        getValue: (group) => {
+          return Array.from(new Set((group.categories ?? []).map((category) => category.categoryname).filter(isFilledString)));
+        },
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groups]);
+
   // Filters for the title row, the cards below show the filtered start groups.
   const [filterOn, setFilterOn] = useState(false);
-  const { filters, filteredItems: filteredGroups, activeFilterCount, setFilter, clearFilters } = useFilterState(groups, filterDefinitions);
+  const { values, setFilter, clearFilter, activeFilters, optionsByKey, filteredItems } = useFilterState(groups, filterDefinitions);
+
+  // Translate the hook output into the shape expected by the existing SelectButton UI.
+  const filterData = useMemo(
+    () => ({
+      clubdata: { label: "Verein", values: optionsByKey.club },
+      namedata: { label: "Name", values: optionsByKey.name },
+      agegroupdata: { label: "Altersgruppe", values: optionsByKey.agegroup },
+      starttimedata: { label: "Startzeit", values: optionsByKey.starttime },
+      areadata: { label: "Fläche", values: optionsByKey.area },
+      categorydata: { label: "Kategorie", values: optionsByKey.category },
+    }),
+    [optionsByKey],
+  );
 
   if (loading) {
     return (
@@ -299,71 +426,39 @@ export default function EventResultsPage() {
           <Box
             sx={{
               display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "16px",
-              marginBottom: "8px",
+              flexDirection: "column",
+              marginBottom: { lg: "32px", xs: "8px" },
+              bgcolor: "primary.light",
+              borderRadius: "4px",
+              width: "100%",
+              position: "sticky",
+              top: { lg: "120px", xs: "72px" },
+              zIndex: "1",
             }}
           >
-            <Typography
-              variant={isSm ? "h4" : "h3"}
-              sx={{
-                fontWeight: "bold",
-                color: "primary.main",
-              }}
-            >
-              {event.name}
-            </Typography>
-            {filters.length > 0 && (
-              <SelectButton filterOn={filterOn} activeFilterCount={activeFilterCount} onToggle={() => setFilterOn((current) => !current)} />
+            <FilterHeadline title="Startgruppen" filterOn={filterOn} onToggleFilter={() => setFilterOn(!filterOn)} titleVariant="h3">
+              <SelectButton listdata={filterData.clubdata} setFilter={(value) => setFilter("club", value)} />
+              <SelectButton listdata={filterData.namedata} setFilter={(value) => setFilter("name", value)} />
+              <SelectButton listdata={filterData.agegroupdata} setFilter={(value) => setFilter("agegroup", value)} />
+              <SelectButton listdata={filterData.areadata} setFilter={(value) => setFilter("area", value)} />
+              <SelectButton listdata={filterData.categorydata} setFilter={(value) => setFilter("category", value)} />
+            </FilterHeadline>
+          </Box>
+          <Box sx={{ display: "flex", flexDirection: "row" }}>
+            {event.date && (
+              <Typography variant="body1" color="text.secondary">
+                Datum: {formatDate(event.date)}
+              </Typography>
+            )}
+            {event.location && (
+              <Typography variant="body1" color="text.secondary">
+                Ort: {event.location}
+              </Typography>
             )}
           </Box>
-          {filters.length > 0 && (
-            <Collapse in={filterOn} unmountOnExit>
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "8px",
-                  padding: { xs: "8px", md: "16px" },
-                  marginBottom: "8px",
-                  border: "1px solid",
-                  borderColor: "divider",
-                  borderRadius: "4px",
-                  bgcolor: "background.paper",
-                  maxHeight: { xs: "50vh", md: "60vh" },
-                  overflowY: "auto",
-                }}
-              >
-                {filters.map((filter) => (
-                  <Box key={filter.id}>
-                    <FilterHeadline label={filter.label} selectedCount={filter.selected === "" ? 0 : 1} />
-                    <Box sx={{ display: "flex", flexWrap: "wrap" }}>
-                      {filter.options.map((option) => (
-                        <FilterChip key={option} listdata={{ label: option }} filter={filter.selected} setFilter={(value) => setFilter(filter.id, value)} />
-                      ))}
-                    </Box>
-                  </Box>
-                ))}
-                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-                  <Button variant="text" size="small" onClick={clearFilters} disabled={activeFilterCount === 0}>
-                    Filter zurücksetzen
-                  </Button>
-                </Box>
-              </Box>
-            </Collapse>
-          )}
-          {event.date && (
-            <Typography variant="body1" color="text.secondary">
-              Datum: {formatDate(event.date)}
-            </Typography>
-          )}
-          {event.location && (
-            <Typography variant="body1" color="text.secondary">
-              Ort: {event.location}
-            </Typography>
-          )}
+          {activeFilters.map((filter) => (
+            <FilterChip key={filter.key} listdata={{ label: filter.label }} filter={values[filter.key]} setFilter={() => clearFilter(filter.key)} />
+          ))}
         </Box>
 
         {/* Groups */}
@@ -371,7 +466,7 @@ export default function EventResultsPage() {
           <Typography variant="body1" color="text.secondary">
             Noch keine Ergebnisse verfügbar.
           </Typography>
-        ) : filteredGroups.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <Typography variant="body1" color="text.secondary">
             Keine Startgruppen für die gewählten Filter.
           </Typography>
@@ -385,7 +480,7 @@ export default function EventResultsPage() {
               paddingY: "0px",
             }}
           >
-            {filteredGroups.map((group, index) => (
+            {filteredItems.map((group, index) => (
               <Box
                 key={group.id}
                 sx={{
