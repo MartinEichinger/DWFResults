@@ -128,9 +128,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
       const startGroupResult = await db.execute({
         sql: `
-				INSERT INTO a_startgroups (event_id, startgroup_id, actuallycompleted, areasensitivestartingplace, competitionarea, plannedendtime, simultaneousstarter, startgroupname, starttime)
+				INSERT INTO a_startgroups (event_id, startgroup_id, actuallycompleted, areaSensitiveStartingPlace, competitionarea, plannedendtime, simultaneousstarter, startgroupname, starttime)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-				ON CONFLICT DO NOTHING
+				ON CONFLICT (event_id, startgroup_id) DO UPDATE SET
+					actuallycompleted = excluded.actuallycompleted,
+					areaSensitiveStartingPlace = excluded.areaSensitiveStartingPlace,
+					competitionarea = excluded.competitionarea,
+					plannedendtime = excluded.plannedendtime,
+					simultaneousstarter = excluded.simultaneousstarter,
+					startgroupname = excluded.startgroupname,
+					starttime = excluded.starttime
+				RETURNING id
 			`,
         args: [
           eventId,
@@ -145,26 +153,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         ],
       });
 
-      let lastStartGroupId = startGroupResult.lastInsertRowid ? toRequiredInteger(startGroupResult.lastInsertRowid, "start group id") : null;
-
-      if (lastStartGroupId === null) {
-        const existingStartGroup = await db.execute({
-          sql: `
-				SELECT id
-				FROM a_startgroups
-				WHERE event_id = ? AND startgroup_id = ?
-				ORDER BY id DESC
-				LIMIT 1
-			`,
-          args: [eventId, startGroupId],
-        });
-
-        if (existingStartGroup.rows.length === 0) {
-          throw new Error(`Could not resolve startgroup id for event ${eventId}`);
-        }
-
-        lastStartGroupId = toRequiredInteger(existingStartGroup.rows[0].id, "startgroup id");
+      if (startGroupResult.rows.length === 0) {
+        throw new Error(`Could not resolve startgroup id for event ${eventId}`);
       }
+
+      const lastStartGroupId = toRequiredInteger(startGroupResult.rows[0].id, "startgroup id");
 
       if (!Array.isArray(group.categories)) {
         continue;
@@ -184,11 +177,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
           sql: `
             INSERT INTO a_categories (startgroup_id, category_id, agegroup, categoryname, gender, timelimit)
             VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (startgroup_id, category_id) DO UPDATE SET
+              agegroup = excluded.agegroup,
+              categoryname = excluded.categoryname,
+              gender = excluded.gender,
+              timelimit = excluded.timelimit
+            RETURNING id
           `,
           args: [
             lastStartGroupId,
-            toSqlArg(category.id),
+            categoryId,
             toSqlArg(category.agegroup),
             toSqlArg(category.categoryname),
             toSqlArg(category.gender),
@@ -196,26 +194,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
           ],
         });
 
-        let lastCategoryId = categoryResult.lastInsertRowid ? toRequiredInteger(categoryResult.lastInsertRowid, "category id") : null;
-
-        if (lastCategoryId === null) {
-          const existingCategory = await db.execute({
-            sql: `
-              SELECT id
-              FROM a_categories
-              WHERE startgroup_id = ? AND category_id = ?
-              ORDER BY id DESC
-              LIMIT 1
-            `,
-            args: [startGroupId, categoryId],
-          });
-
-          if (existingCategory.rows.length === 0) {
-            throw new Error(`Could not resolve category id for start group ${startGroupId}`);
-          }
-
-          lastCategoryId = toRequiredInteger(existingCategory.rows[0].id, "category id");
+        if (categoryResult.rows.length === 0) {
+          throw new Error(`Could not resolve category id for start group ${startGroupId}`);
         }
+
+        const lastCategoryId = toRequiredInteger(categoryResult.rows[0].id, "category id");
 
         if (!Array.isArray(category.forms)) {
           continue;
@@ -235,7 +218,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
             sql: `
             INSERT INTO a_forms (category_id, form_id, agegroup, categoryname, club, depreferee1id, depreferee2id, depreferee3id, depreferee4id, endingtime, finalscore, gender, mainrefereededuction, mainrefereedeductionjustification, name, notshowedup, placement,rating1,rating2,rating3,rating4,rating5,rating6,rating7,rating8,standarddeviation,startingorder,startingtime)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            ON CONFLICT DO NOTHING
+            ON CONFLICT (category_id, form_id) DO UPDATE SET
+              agegroup = excluded.agegroup,
+              categoryname = excluded.categoryname,
+              club = excluded.club,
+              depreferee1id = excluded.depreferee1id,
+              depreferee2id = excluded.depreferee2id,
+              depreferee3id = excluded.depreferee3id,
+              depreferee4id = excluded.depreferee4id,
+              endingtime = excluded.endingtime,
+              finalscore = excluded.finalscore,
+              gender = excluded.gender,
+              mainrefereededuction = excluded.mainrefereededuction,
+              mainrefereedeductionjustification = excluded.mainrefereedeductionjustification,
+              name = excluded.name,
+              notshowedup = excluded.notshowedup,
+              placement = excluded.placement,
+              rating1 = excluded.rating1,
+              rating2 = excluded.rating2,
+              rating3 = excluded.rating3,
+              rating4 = excluded.rating4,
+              rating5 = excluded.rating5,
+              rating6 = excluded.rating6,
+              rating7 = excluded.rating7,
+              rating8 = excluded.rating8,
+              standarddeviation = excluded.standarddeviation,
+              startingorder = excluded.startingorder,
+              startingtime = excluded.startingtime
+            RETURNING id
           `,
             args: [
               lastCategoryId,
@@ -269,7 +279,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
             ],
           });
 
-          let lastFormId = formResult.lastInsertRowid ? toRequiredInteger(formResult.lastInsertRowid, "form id") : null;
+          let lastFormId = formResult.rows.length > 0 ? toRequiredInteger(formResult.rows[0].id, "form id") : null;
 
           if (lastFormId === null) {
             const existingForm = await db.execute({
@@ -280,7 +290,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
               ORDER BY id DESC
               LIMIT 1
             `,
-              args: [formId, categoryId],
+              args: [formId, lastCategoryId],
             });
 
             if (existingForm.rows.length === 0) {
@@ -308,7 +318,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
               sql: `
                 INSERT INTO a_participants (participant_id, forename, surname, name, club, gender)
                 VALUES (?,?,?,?,?,?)
-                ON CONFLICT DO NOTHING
+                ON CONFLICT (participant_id) DO UPDATE SET
+                  forename = excluded.forename,
+                  surname = excluded.surname,
+                  name = excluded.name,
+                  club = excluded.club,
+                  gender = excluded.gender
+                RETURNING id
               `,
               args: [
                 participantId,
@@ -320,30 +336,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
               ],
             });
 
-            let lastParticipantId = participantResult.lastInsertRowid ? toRequiredInteger(participantResult.lastInsertRowid, "participant id") : null;
-
-            if (lastParticipantId === null) {
-              const existingParticipant = await db.execute({
-                sql: `
-                  SELECT id
-                  FROM a_participants
-                  WHERE participant_id = ?
-                  ORDER BY id DESC
-                  LIMIT 1
-                `,
-                args: [participantId],
-              });
-
-              if (existingParticipant.rows.length === 0) {
-                throw new Error(`Could not resolve participant id for participant ${participantId}`);
-              }
-
-              lastParticipantId = toRequiredInteger(existingParticipant.rows[0].id, "form id");
+            if (participantResult.rows.length === 0) {
+              throw new Error(`Could not resolve participant id for participant ${participantId}`);
             }
 
-            if (!Array.isArray(form.participants)) {
-              continue;
-            }
+            const lastParticipantId = toRequiredInteger(participantResult.rows[0].id, "participant id");
 
             await db.execute({
               sql: `

@@ -109,6 +109,24 @@ export async function initDatabase() {
       FOREIGN KEY (participant_id) REFERENCES a_participants(id)
     )
   `);
+
+  // Unique keys of the imported (external) ids - without them "ON CONFLICT" never
+  // triggers and every import creates duplicates.
+  const uniqueIndexes = [
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_a_startgroups_import ON a_startgroups (event_id, startgroup_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_a_categories_import ON a_categories (startgroup_id, category_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_a_forms_import ON a_forms (category_id, form_id)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_a_participants_import ON a_participants (participant_id)",
+  ];
+
+  for (const statement of uniqueIndexes) {
+    try {
+      await db.execute(statement);
+    } catch (error) {
+      // Fails as long as the table still contains duplicates from earlier imports.
+      console.warn(`initDatabase: could not create unique index, please remove duplicate rows first (${statement})`, error);
+    }
+  }
 }
 
 export type TEvent = {

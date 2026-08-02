@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { db, initDatabase } from "@/lib/db";
+import { db, initDatabase, TStartgroup } from "@/lib/db";
 
-const debug = 0;
+const debug = 1;
 
 type SqlArg = string | number | bigint | boolean | Uint8Array | ArrayBuffer | Date | null;
 
@@ -100,11 +100,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const data = (await request.json()) as { groups?: CompleteGroupPayload[] } & CompleteGroupPayload;
+    const data = (await request.json()) as { groups?: TStartgroup[] } & TStartgroup;
 
     // 1. Event anhand des Slugs finden
     const eventResult = await db.execute({
-      sql: "SELECT id FROM events WHERE slug = ?",
+      sql: "SELECT id FROM a_events WHERE slug = ?",
       args: [slug],
     });
 
@@ -120,9 +120,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
     if (debug > 0) console.log("groups/single/POST: ", groups);
 
     for (const group of groups) {
-      const startGroupId = toRequiredInteger(group.startgroupId, "group startgroupId");
-      const groupTitle = typeof group.groupTitle === "string" ? group.groupTitle.trim() : "";
-      const groupResults = Array.isArray(group.results) ? group.results : Array.isArray(group.participants) ? group.participants : null;
+      const startGroupId = toRequiredInteger(group.id, "group startgroupId");
+      const startgroupname = typeof group.startgroupname === "string" ? group.startgroupname.trim() : "";
+      const categories = Array.isArray(group.categories) ? group.categories : null;
       const groupUpdateValues: SqlArg[] = [
         groupTitle,
         toSqlArg(group.actuallycompleted ?? null),
@@ -130,8 +130,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         toSqlArg(group.areaSensitiveStartingPlace ?? null),
       ];
 
-      if (!groupTitle) {
-        throw new TypeError("Missing groupTitle");
+      if (!startgroupname) {
+        throw new TypeError("Missing startgroupname");
       }
 
       if (debug > 0) console.log("groups/complete/POST-group: ", group);
