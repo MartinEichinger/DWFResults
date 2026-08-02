@@ -17,14 +17,15 @@ export type Filter = {
   id: string;
   label: string;
   options: string[];
-  selected: string[];
+  /** The selected option, an empty string means the filter is inactive. */
+  selected: string;
 };
 
 export type FilterState<T> = {
   filters: Filter[];
   filteredItems: T[];
   activeFilterCount: number;
-  toggleOption: (filterId: string, option: string) => void;
+  setFilter: (filterId: string, option: string) => void;
   clearFilters: () => void;
 };
 
@@ -36,10 +37,10 @@ const uniqueSorted = (values: string[], compare: (left: string, right: string) =
  * Generic filter state for a list of items. Options are derived from the items themselves,
  * therefore they stay in sync whenever the underlying data (redux store) changes.
  *
- * Multiple options of the same filter are combined with OR, different filters with AND.
+ * Every filter holds a single selected option, the active filters are combined with AND.
  */
 export default function useFilterState<T>(items: T[], definitions: FilterDefinition<T>[]): FilterState<T> {
-  const [selection, setSelection] = useState<Record<string, string[]>>({});
+  const [selection, setSelection] = useState<Record<string, string>>({});
 
   const filters = useMemo<Filter[]>(
     () =>
@@ -49,14 +50,14 @@ export default function useFilterState<T>(items: T[], definitions: FilterDefinit
             items.flatMap((item) => definition.extract(item)),
             definition.compare ?? naturalCompare,
           );
-          // Options can disappear when the data changes, stale selections are ignored.
-          const selected = (selection[definition.id] ?? []).filter((option) => options.includes(option));
+          // Options can disappear when the data changes, a stale selection is ignored.
+          const selected = selection[definition.id] ?? "";
 
           return {
             id: definition.id,
             label: definition.label,
             options,
-            selected,
+            selected: options.includes(selected) ? selected : "",
           };
         })
         // Filters without options (or with a single option) do not narrow anything down.
@@ -65,7 +66,7 @@ export default function useFilterState<T>(items: T[], definitions: FilterDefinit
   );
 
   const filteredItems = useMemo(() => {
-    const activeFilters = filters.filter((filter) => filter.selected.length > 0);
+    const activeFilters = filters.filter((filter) => filter.selected !== "");
 
     if (activeFilters.length === 0) {
       return items;
@@ -81,25 +82,18 @@ export default function useFilterState<T>(items: T[], definitions: FilterDefinit
           return true;
         }
 
-        const values = definition.extract(item);
-
-        return filter.selected.some((option) => values.includes(option));
+        return definition.extract(item).includes(filter.selected);
       }),
     );
   }, [definitions, filters, items]);
 
-  const toggleOption = useCallback((filterId: string, option: string) => {
-    setSelection((currentSelection) => {
-      const selected = currentSelection[filterId] ?? [];
-      const nextSelected = selected.includes(option) ? selected.filter((entry) => entry !== option) : [...selected, option];
-
-      return { ...currentSelection, [filterId]: nextSelected };
-    });
+  const setFilter = useCallback((filterId: string, option: string) => {
+    setSelection((currentSelection) => ({ ...currentSelection, [filterId]: option }));
   }, []);
 
   const clearFilters = useCallback(() => setSelection({}), []);
 
-  const activeFilterCount = filters.reduce((count, filter) => count + filter.selected.length, 0);
+  const activeFilterCount = filters.reduce((count, filter) => count + (filter.selected === "" ? 0 : 1), 0);
 
-  return { filters, filteredItems, activeFilterCount, toggleOption, clearFilters };
+  return { filters, filteredItems, activeFilterCount, setFilter, clearFilters };
 }

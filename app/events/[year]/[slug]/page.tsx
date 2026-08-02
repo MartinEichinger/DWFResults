@@ -213,7 +213,7 @@ export default function EventResultsPage() {
 
   // Filters for the title row, the cards below show the filtered start groups.
   const [filterOn, setFilterOn] = useState(false);
-  const { filters, filteredItems: filteredGroups, activeFilterCount, toggleOption, clearFilters } = useFilterState(groups, filterDefinitions);
+  const { filters, filteredItems: filteredGroups, activeFilterCount, setFilter, clearFilters } = useFilterState(groups, filterDefinitions);
 
   if (loading) {
     return (
@@ -338,10 +338,10 @@ export default function EventResultsPage() {
               >
                 {filters.map((filter) => (
                   <Box key={filter.id}>
-                    <FilterHeadline label={filter.label} selectedCount={filter.selected.length} />
+                    <FilterHeadline label={filter.label} selectedCount={filter.selected === "" ? 0 : 1} />
                     <Box sx={{ display: "flex", flexWrap: "wrap" }}>
                       {filter.options.map((option) => (
-                        <FilterChip key={option} label={option} selected={filter.selected.includes(option)} onToggle={() => toggleOption(filter.id, option)} />
+                        <FilterChip key={option} listdata={{ label: option }} filter={filter.selected} setFilter={(value) => setFilter(filter.id, value)} />
                       ))}
                     </Box>
                   </Box>

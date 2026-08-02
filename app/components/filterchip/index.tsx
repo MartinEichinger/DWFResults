@@ -1,20 +1,23 @@
 "use client";
 
+import * as React from "react";
 import Chip from "@mui/material/Chip";
 
-interface FilterChipProps {
-  label: string;
-  selected: boolean;
-  onToggle: () => void;
-}
+type FilterChipProps = {
+  listdata: { label: string };
+  filter: string;
+  setFilter: (value: string) => void;
+};
 
-export default function FilterChip({ label, selected, onToggle }: FilterChipProps) {
+const FilterChip: React.FC<FilterChipProps> = ({ listdata, filter, setFilter }) => {
+  const selected = filter === listdata.label;
+
   return (
     <Chip
-      label={label}
+      label={listdata.label}
       size="small"
       clickable
-      onClick={onToggle}
+      onClick={() => setFilter(selected ? "" : listdata.label)}
       color={selected ? "primary" : "default"}
       variant={selected ? "filled" : "outlined"}
       aria-pressed={selected}
@@ -24,4 +27,6 @@ export default function FilterChip({ label, selected, onToggle }: FilterChipProp
       }}
     />
   );
-}
+};
+
+export default FilterChip;
