@@ -7,20 +7,24 @@ type ResponsiveOffset = Record<string, string | number>;
 
 interface FilterHeadlineProps {
   title: string;
+  subtitle?: string;
   filterOn: boolean;
   onToggleFilter: () => void;
   children: ReactNode;
   titleVariant?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+  subtitleVariant?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
   titleColor?: string;
   topOffset?: string | number | ResponsiveOffset;
 }
 
 const FilterHeadline = ({
   title,
+  subtitle,
   filterOn,
   onToggleFilter,
   children,
   titleVariant = "h4",
+  subtitleVariant = "h5",
   titleColor = "white",
   topOffset = { lg: "120px", xs: "72px" },
 }: FilterHeadlineProps) => {
@@ -34,7 +38,7 @@ const FilterHeadline = ({
         bgcolor: "primary.light",
         borderRadius: "4px",
         width: "100%",
-        height: { xs: "auto", md: "72px" },
+        height: { xs: "auto", md: "90px" },
         position: "sticky",
         top: topOffset,
         zIndex: "1",
@@ -42,22 +46,34 @@ const FilterHeadline = ({
     >
       <Box
         sx={{
-          display: { xs: "flex", md: "block" },
+          display: { xs: "flex", lg: "block" },
           flexDirection: "row",
           justifyContent: "space-between",
-          width: { xs: "100%", md: "calc(100% - 128px)" },
+          width: { xs: "100%", lg: "calc(100% - 128px)" },
         }}
       >
-        <Typography
-          variant={titleVariant}
-          sx={{
-            color: titleColor,
-            padding: "4px 24px 4px 8px",
-            fontSize: { sm: "3rem", xs: "2.125rem" },
-          }}
-        >
-          {title}
-        </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column" }}>
+          <Typography
+            variant={titleVariant}
+            sx={{
+              color: titleColor,
+              padding: "4px 24px 4px 8px",
+              fontSize: { sm: "2.5rem", xs: "2rem" },
+            }}
+          >
+            {title}
+          </Typography>
+          <Typography
+            variant={subtitleVariant}
+            sx={{
+              color: titleColor,
+              padding: "2px 24px 4px 8px",
+              fontSize: { sm: "1rem", xs: "0.5rem" },
+            }}
+          >
+            {subtitle}
+          </Typography>
+        </Box>
         <Button
           variant="outlined"
           onClick={onToggleFilter}
@@ -70,7 +86,7 @@ const FilterHeadline = ({
             },
             margin: "8px",
             textTransform: "none",
-            display: { xs: "flex", md: "none" },
+            display: { xs: "flex", lg: "none" },
           }}
           endIcon={filterOn ? <FilterListOffIcon /> : <FilterListIcon />}
         >
@@ -85,7 +101,7 @@ const FilterHeadline = ({
                 flexDirection: "row",
                 flexWrap: "wrap",
               }
-            : { display: { xs: "none", md: "flex" } }
+            : { display: { xs: "none", lg: "flex" } }
         }
       >
         {children}

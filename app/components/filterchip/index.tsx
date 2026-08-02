@@ -10,20 +10,24 @@ type FilterChipProps = {
 };
 
 const FilterChip: React.FC<FilterChipProps> = ({ listdata, filter, setFilter }) => {
-  const selected = filter === listdata.label;
-
   return (
     <Chip
-      label={listdata.label}
-      size="small"
-      clickable
-      onClick={() => setFilter(selected ? "" : listdata.label)}
-      color={selected ? "primary" : "default"}
-      variant={selected ? "filled" : "outlined"}
-      aria-pressed={selected}
+      variant="outlined"
+      label={`${listdata.label}: ${filter}`}
+      onDelete={() => setFilter("")}
       sx={{
-        marginRight: "8px",
-        marginBottom: "8px",
+        width: "fit-content",
+        borderRadius: "3px",
+        margin: "0px 8px 16px 0px",
+        backgroundColor: "white",
+        color: "primary.light",
+        borderColor: "primary.light",
+        "& .MuiChip-deleteIcon": {
+          color: "primary.light",
+          "&:hover": {
+            color: "primary.dark",
+          },
+        },
       }}
     />
   );

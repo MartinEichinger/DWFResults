@@ -390,7 +390,7 @@ export default function EventResultsPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        padding: { xs: "16px 16px", lg: "56px 56px" },
+        padding: { xs: "0px 16px", lg: "0px 56px" },
         backgroundColor: "background.default",
       }}
     >
@@ -431,12 +431,22 @@ export default function EventResultsPage() {
               bgcolor: "primary.light",
               borderRadius: "4px",
               width: "100%",
-              position: "sticky",
-              top: { lg: "120px", xs: "72px" },
+              position: "relative",
+              top: { lg: "8px", xs: "8px" },
               zIndex: "1",
             }}
           >
-            <FilterHeadline title="Startgruppen" filterOn={filterOn} onToggleFilter={() => setFilterOn(!filterOn)} titleVariant="h3">
+            <FilterHeadline
+              title={event.name}
+              subtitle={
+                [event.date ? `Datum: ${formatDate(event.date)}` : null, event.location ? `Ort: ${event.location}` : null].filter(isFilledString).join(" - ") ||
+                undefined
+              }
+              filterOn={filterOn}
+              onToggleFilter={() => setFilterOn(!filterOn)}
+              titleVariant="h3"
+              subtitleVariant="h6"
+            >
               <SelectButton listdata={filterData.clubdata} setFilter={(value) => setFilter("club", value)} />
               <SelectButton listdata={filterData.namedata} setFilter={(value) => setFilter("name", value)} />
               <SelectButton listdata={filterData.agegroupdata} setFilter={(value) => setFilter("agegroup", value)} />
@@ -444,18 +454,7 @@ export default function EventResultsPage() {
               <SelectButton listdata={filterData.categorydata} setFilter={(value) => setFilter("category", value)} />
             </FilterHeadline>
           </Box>
-          <Box sx={{ display: "flex", flexDirection: "row" }}>
-            {event.date && (
-              <Typography variant="body1" color="text.secondary">
-                Datum: {formatDate(event.date)}
-              </Typography>
-            )}
-            {event.location && (
-              <Typography variant="body1" color="text.secondary">
-                Ort: {event.location}
-              </Typography>
-            )}
-          </Box>
+
           {activeFilters.map((filter) => (
             <FilterChip key={filter.key} listdata={{ label: filter.label }} filter={values[filter.key]} setFilter={() => clearFilter(filter.key)} />
           ))}
