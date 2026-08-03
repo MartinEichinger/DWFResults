@@ -36,8 +36,9 @@ const debug = 1;
 
 const getStandardDeviation = (result: Result) => result.standarddeviation ?? Number.POSITIVE_INFINITY;
 const getMainJudgeRating = (result: Result) => result.rating1 ?? Number.NEGATIVE_INFINITY;
-const getMainRefereeDeduction = (result: Result) =>
-  result.mainrefereededuction !== null && result.mainrefereededuction > 0 ? `${result.mainrefereededuction}` : null;
+const getMainRefereeDeduction = (result: Result) => {
+  return result.mainrefereededuction !== null && (result.mainrefereededuction > 0 || result.mainrefereededuction < 0) ? `${result.mainrefereededuction}` : null;
+};
 const numbersAreEqual = (left: number, right: number) => {
   if (!Number.isFinite(left) || !Number.isFinite(right)) {
     return left === right;
@@ -390,7 +391,7 @@ export default function EventResultsPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        padding: { xs: "0px 16px", lg: "0px 56px" },
+        padding: { xs: "0px 4px", sm: "0px 16px", lg: "0px 56px" },
         backgroundColor: "background.default",
       }}
     >
@@ -417,7 +418,7 @@ export default function EventResultsPage() {
               variant="text"
               startIcon={<ArrowBackIcon />}
               sx={{
-                marginBottom: "16px",
+                marginBottom: { xs: "0px", sm: "16px" },
               }}
             >
               Zurück zur Startseite

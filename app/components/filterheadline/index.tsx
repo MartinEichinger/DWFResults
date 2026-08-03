@@ -33,11 +33,13 @@ const FilterHeadline = ({
       sx={{
         display: "flex",
         flexDirection: { xs: "column", md: "row" },
+        flexWrap: "nowrap",
         justifyContent: "space-between",
         marginBottom: "8px",
         bgcolor: "primary.light",
         borderRadius: "4px",
         width: "100%",
+        minWidth: 0,
         height: { xs: "auto", md: "90px" },
         position: "sticky",
         top: topOffset,
@@ -46,19 +48,31 @@ const FilterHeadline = ({
     >
       <Box
         sx={{
-          display: { xs: "flex", lg: "block" },
+          display: "flex",
           flexDirection: "row",
+          flexWrap: "nowrap",
+          alignItems: "center",
+          flex: "0 0 auto",
+          minWidth: 0,
           justifyContent: "space-between",
-          width: { xs: "100%", lg: "calc(100% - 128px)" },
+          width: { xs: "100%", md: "auto" },
         }}
       >
-        <Box sx={{ display: "flex", flexDirection: "column" }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            flex: "1 1 auto",
+            minWidth: 0,
+          }}
+        >
           <Typography
             variant={titleVariant}
             sx={{
               color: titleColor,
               padding: "4px 24px 4px 8px",
-              fontSize: { sm: "2.5rem", xs: "2rem" },
+              fontSize: { xs: "1.5rem", sm: "2.5rem" },
+              overflowWrap: "break-word",
             }}
           >
             {title}
@@ -68,7 +82,8 @@ const FilterHeadline = ({
             sx={{
               color: titleColor,
               padding: "2px 24px 4px 8px",
-              fontSize: { sm: "1rem", xs: "0.5rem" },
+              fontSize: { xs: "0.75rem", sm: "1rem" },
+              overflowWrap: "break-word",
             }}
           >
             {subtitle}
@@ -80,6 +95,8 @@ const FilterHeadline = ({
           sx={{
             color: "white",
             border: "none",
+            flex: "0 0 auto",
+            whiteSpace: "nowrap",
             "&:hover": {
               border: "none",
               backgroundColor: "rgba(255,255,255,0.1)",
@@ -100,8 +117,20 @@ const FilterHeadline = ({
                 display: "flex",
                 flexDirection: "row",
                 flexWrap: "wrap",
+                alignContent: "center",
+                justifyContent: "flex-end",
+                flex: "0 1 auto",
+                minWidth: 0,
               }
-            : { display: { xs: "none", lg: "flex" } }
+            : {
+                display: { xs: "none", lg: "flex" },
+                flexDirection: "row",
+                flexWrap: "wrap",
+                alignContent: "center",
+                justifyContent: "flex-end",
+                flex: "0 1 auto",
+                minWidth: 0,
+              }
         }
       >
         {children}
