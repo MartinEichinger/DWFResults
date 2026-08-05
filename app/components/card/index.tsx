@@ -41,7 +41,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
     <Card
       variant="outlined"
       sx={{
-        minWidth: { xs: "375px", md: "425px" },
+        minWidth: { xs: "350px", md: "425px" },
         maxWidth: "600px",
         minHeight: "100px",
         display: "flex",
@@ -155,7 +155,8 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                   sx={{
                     display: "flex",
                     flexDirection: "column",
-                    alignItems: "flex-end",
+                    alignItems: "flex-start",
+                    minWidth: "45px",
                   }}
                 >
                   <Typography

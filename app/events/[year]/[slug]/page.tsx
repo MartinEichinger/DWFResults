@@ -433,7 +433,7 @@ export default function EventResultsPage() {
               borderRadius: "4px",
               width: "100%",
               position: "relative",
-              top: { lg: "8px", xs: "8px" },
+              top: "0px",
               zIndex: "1",
             }}
           >

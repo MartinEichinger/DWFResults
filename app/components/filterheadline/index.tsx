@@ -17,6 +17,8 @@ interface FilterHeadlineProps {
   topOffset?: string | number | ResponsiveOffset;
 }
 
+const debug = 1;
+
 const FilterHeadline = ({
   title,
   subtitle,
@@ -28,11 +30,13 @@ const FilterHeadline = ({
   titleColor = "white",
   topOffset = { lg: "120px", xs: "72px" },
 }: FilterHeadlineProps) => {
+  if (debug > 0) console.log("FilterHeadline: ", filterOn);
+
   return (
     <Box
       sx={{
         display: "flex",
-        flexDirection: { xs: "column", md: "row" },
+        flexDirection: { xs: "column", lg: "row" },
         flexWrap: "nowrap",
         justifyContent: "space-between",
         marginBottom: "8px",
@@ -40,7 +44,7 @@ const FilterHeadline = ({
         borderRadius: "4px",
         width: "100%",
         minWidth: 0,
-        height: { xs: "auto", md: "90px" },
+        height: { xs: "auto", lg: "90px" },
         position: "sticky",
         top: topOffset,
         zIndex: "1",
