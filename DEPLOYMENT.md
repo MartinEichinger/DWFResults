@@ -185,6 +185,8 @@ Fehlerquelle. Die App ist darauf ausgelegt, dies zu vermeiden:
 - Clients pollen nur `GET /api/events/[slug]/version` und laden die vollständigen
   Ergebnisse erst bei einer echten Änderung.
 - Polling pausiert bei verstecktem Tab und stoppt nach 30 Minuten Inaktivität.
+- Das Polling-Intervall richtet sich nach der beobachteten Aktivität (15 s während
+  laufender Importe, 5 min bei ruhenden Veranstaltungen).
 - `vercel.json` begrenzt den Funktionsspeicher auf 512 MB, die Routen setzen zusätzlich
   ein `maxDuration`.
 

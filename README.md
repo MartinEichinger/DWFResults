@@ -124,7 +124,9 @@ aktuell:
 
 - Polling pausiert, solange der Tab im Hintergrund ist (`visibilitychange`).
 - Nach 30 Minuten ohne Interaktion stoppt das Polling; ein "Aktualisieren"-Button setzt es fort.
-- Laufende Wettkämpfe werden alle 30 Sekunden geprüft, abgeschlossene alle 5 Minuten.
+- Solange Daten eintreffen, wird alle 15 Sekunden geprüft. Erst wenn sich 10 Minuten
+  lang nichts geändert hat, wird auf 5 Minuten verlangsamt; jede erkannte Änderung
+  schaltet sofort wieder auf das schnelle Intervall zurück.
 
 ## Daten importieren
 

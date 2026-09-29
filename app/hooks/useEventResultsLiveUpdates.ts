@@ -4,11 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchEventResults } from "@/lib/store/eventResultsSlice";
 import { useAppDispatch } from "@/lib/store/hooks";
 
-// While a competition is running the results change frequently, afterwards they
-// are practically static. Polling the cheap version endpoint keeps the number of
-// expensive full reloads (and therefore the serverless compute time) low.
-const LIVE_POLLING_INTERVAL_MS = 30_000;
-const IDLE_POLLING_INTERVAL_MS = 5 * 60_000;
+// While data is still coming in, the cheap version endpoint is polled at this rate.
+const ACTIVE_POLLING_INTERVAL_MS = 15_000;
+
+// An event that has not changed for a while is polled far less often.
+const DORMANT_POLLING_INTERVAL_MS = 5 * 60_000;
+
+// How long after the last observed change the fast interval is kept. Any change
+// resets this, so an event that keeps receiving imports is never slowed down.
+const ACTIVITY_WINDOW_MS = 10 * 60_000;
 
 // After this time without any user interaction polling stops completely and the
 // user has to refresh manually. This prevents forgotten tabs from polling for days.
@@ -26,20 +30,26 @@ export type TLiveUpdatesState = {
  * version endpoint. The full (and expensive) result payload is only requested
  * when the event actually changed.
  *
+ * The polling rate follows the observed activity instead of deriving from the
+ * data whether a competition is over: as long as results keep arriving the fast
+ * interval is used, and every detected change resets the window. Polling can
+ * therefore never get stuck slow while data is still being imported.
+ *
  * @param slug           Event slug to watch.
- * @param isLive         Whether the competition is still running - controls the polling frequency.
  * @param initialVersion Revision of the server rendered payload, so the first poll
  *                       does not trigger a redundant full reload.
  */
-export function useEventResultsLiveUpdates(slug: string | null, isLive: boolean = true, initialVersion: number | null = null): TLiveUpdatesState {
+export function useEventResultsLiveUpdates(slug: string | null, initialVersion: number | null = null): TLiveUpdatesState {
   const dispatch = useAppDispatch();
   const [paused, setPaused] = useState(false);
   const lastInteractionRef = useRef(Date.now());
+  const lastChangeRef = useRef(Date.now());
   const knownVersionRef = useRef<number | null>(initialVersion);
   const resumeRef = useRef<(() => void) | null>(null);
 
   const refresh = useCallback(() => {
     lastInteractionRef.current = Date.now();
+    lastChangeRef.current = Date.now();
     setPaused(false);
     resumeRef.current?.();
   }, []);
@@ -67,7 +77,9 @@ export function useEventResultsLiveUpdates(slug: string | null, isLive: boolean 
         return;
       }
 
-      timer = setTimeout(tick, isLive ? LIVE_POLLING_INTERVAL_MS : IDLE_POLLING_INTERVAL_MS);
+      const active = Date.now() - lastChangeRef.current < ACTIVITY_WINDOW_MS;
+
+      timer = setTimeout(tick, active ? ACTIVE_POLLING_INTERVAL_MS : DORMANT_POLLING_INTERVAL_MS);
     };
 
     const tick = async () => {
@@ -97,6 +109,7 @@ export function useEventResultsLiveUpdates(slug: string | null, isLive: boolean 
 
           if (knownVersionRef.current === null || updatedAt !== knownVersionRef.current) {
             knownVersionRef.current = updatedAt;
+            lastChangeRef.current = Date.now();
             await dispatch(fetchEventResults(slug));
           }
         }
@@ -147,7 +160,7 @@ export function useEventResultsLiveUpdates(slug: string | null, isLive: boolean 
       window.removeEventListener("keydown", noteInteraction);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [dispatch, slug, isLive]);
+  }, [dispatch, slug]);
 
   return { paused, refresh };
 }

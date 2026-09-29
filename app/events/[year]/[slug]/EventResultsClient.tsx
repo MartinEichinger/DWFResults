@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatDate } from "@/app/utilities/formatDate";
 import Box from "@mui/material/Box";
@@ -178,10 +178,6 @@ export type EventResultsClientProps = {
   initialUpdatedAt: number | null;
 };
 
-// A competition is considered finished once every start group has been completed.
-// Finished events are polled far less frequently.
-const isEventLive = (groups: TStartgroup[]) => groups.length === 0 || groups.some((group) => !group.actuallycompleted);
-
 export default function EventResultsClient({ slug, initialEvent, initialGroups, initialUpdatedAt }: EventResultsClientProps) {
   const dispatch = useAppDispatch();
 
@@ -198,7 +194,18 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
   const isSm = useMediaQuery(theme.breakpoints.down("md"));
   const isXs = useMediaQuery(theme.breakpoints.down("sm"));
 
+  // The server rendered payload is only used to seed the store once. Afterwards
+  // polling owns the data - re-seeding would overwrite newer results with the
+  // (possibly cached) payload of the initial render.
+  const seededSlugRef = useRef<string | null>(null);
+
   useEffect(() => {
+    if (seededSlugRef.current === slug) {
+      return;
+    }
+
+    seededSlugRef.current = slug;
+
     if (initialEvent) {
       dispatch(setEventResults({ slug, event: initialEvent, groups: initialGroups }));
       return;
@@ -207,10 +214,8 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
     dispatch(fetchEventResults(slug));
   }, [dispatch, slug, initialEvent, initialGroups]);
 
-  const live = isEventLive(rawGroups);
-
   // Keeps the store in sync by polling the cheap version endpoint.
-  const { paused, refresh } = useEventResultsLiveUpdates(slug, live, initialUpdatedAt);
+  const { paused, refresh } = useEventResultsLiveUpdates(slug, initialUpdatedAt);
 
   const groups = useMemo(() => buildGroups(rawGroups), [rawGroups]);
 
