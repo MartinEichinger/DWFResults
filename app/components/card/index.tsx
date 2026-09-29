@@ -5,7 +5,7 @@ import CardContent from "@mui/material/CardContent";
 import Typography from "@mui/material/Typography";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import { formatTime } from "@/app/utilities/formatTime";
-import { Result } from "@/app/events/[year]/[slug]/page";
+import { Result } from "@/app/events/[year]/[slug]/EventResultsClient";
 import Badge from "@mui/material/Badge";
 
 const debug = 0;

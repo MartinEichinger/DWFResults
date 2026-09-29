@@ -15,9 +15,17 @@ export async function initDatabase() {
       slug TEXT NOT NULL UNIQUE,
       date TEXT,
       location TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at INTEGER
     )
   `);
+
+  // Added later on - existing databases still need the column.
+  try {
+    await db.execute("ALTER TABLE a_events ADD COLUMN updated_at INTEGER");
+  } catch {
+    // The column already exists.
+  }
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS a_startgroups (
@@ -137,6 +145,7 @@ export type TEvent = {
   date: string | null;
   location: string | null;
   created_at?: string;
+  updated_at?: number | null;
 };
 
 export type TStartgroup = {

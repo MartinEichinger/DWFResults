@@ -68,7 +68,8 @@ DWFResults/
 │   ├── events/
 │   │   └── [year]/
 │   │       └── [slug]/
-│   │           └── page.tsx          # Ergebnisseite
+│   │           ├── page.tsx          # Ergebnisseite (Server Component, ISR)
+│   │           └── EventResultsClient.tsx # Ergebnisseite (Client)
 │   ├── globals.css                   # Globale Styles
 │   ├── layout.tsx                    # Root Layout
 │   └── page.tsx                      # Startseite
