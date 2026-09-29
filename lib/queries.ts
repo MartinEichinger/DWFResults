@@ -85,6 +85,46 @@ export type TEventResultsPayload = {
   updatedAt: number;
 };
 
+// `a_events.updated_at` was introduced together with the polling endpoints, so
+// databases created before that still lack the column. The read paths no longer
+// run the full schema setup on every request, therefore the column is added
+// lazily the first time a query actually trips over it.
+let updatedAtColumnMigration: Promise<void> | null = null;
+
+function isMissingUpdatedAtColumn(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return /no such column/i.test(message) && /updated_at/i.test(message);
+}
+
+function addUpdatedAtColumn(): Promise<void> {
+  updatedAtColumnMigration ??= db.execute("ALTER TABLE a_events ADD COLUMN updated_at INTEGER").then(
+    () => undefined,
+    // Another instance may have added the column in the meantime.
+    () => undefined,
+  );
+
+  return updatedAtColumnMigration;
+}
+
+/**
+ * Runs a query and, if it failed only because `a_events.updated_at` is missing,
+ * adds the column once and retries. In the normal case this costs nothing.
+ */
+async function withUpdatedAtColumn<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isMissingUpdatedAtColumn(error)) {
+      throw error;
+    }
+
+    await addUpdatedAtColumn();
+
+    return run();
+  }
+}
+
 export async function getEvents(): Promise<TEvent[]> {
   const result = await db.execute("SELECT id, name, year, slug, date, location FROM a_events ORDER BY year DESC, name ASC");
 
@@ -92,7 +132,7 @@ export async function getEvents(): Promise<TEvent[]> {
 }
 
 export async function getEventResults(slug: string): Promise<TEventResultsPayload | null> {
-  const result = await db.execute({ sql: EVENT_RESULTS_SQL, args: [slug] });
+  const result = await withUpdatedAtColumn(() => db.execute({ sql: EVENT_RESULTS_SQL, args: [slug] }));
 
   if (result.rows.length === 0) {
     return null;
@@ -109,7 +149,7 @@ export async function getEventResults(slug: string): Promise<TEventResultsPayloa
  * cheap version endpoint the clients poll.
  */
 export async function getEventVersion(slug: string): Promise<number | null> {
-  const result = await db.execute({ sql: "SELECT updated_at FROM a_events WHERE slug = ?", args: [slug] });
+  const result = await withUpdatedAtColumn(() => db.execute({ sql: "SELECT updated_at FROM a_events WHERE slug = ?", args: [slug] }));
 
   if (result.rows.length === 0) {
     return null;
@@ -123,7 +163,7 @@ export async function getEventVersion(slug: string): Promise<number | null> {
  * the (much more expensive) full result payload.
  */
 export async function touchEvent(slug: string): Promise<void> {
-  await db.execute({ sql: "UPDATE a_events SET updated_at = ? WHERE slug = ?", args: [Date.now(), slug] });
+  await withUpdatedAtColumn(() => db.execute({ sql: "UPDATE a_events SET updated_at = ? WHERE slug = ?", args: [Date.now(), slug] }));
 }
 
 function toTimestamp(value: unknown): number {

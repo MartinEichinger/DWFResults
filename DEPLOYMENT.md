@@ -188,6 +188,18 @@ Fehlerquelle. Die App ist darauf ausgelegt, dies zu vermeiden:
 - `vercel.json` begrenzt den Funktionsspeicher auf 512 MB, die Routen setzen zusätzlich
   ein `maxDuration`.
 
+### Datenbank-Migration
+
+Die Spalte `a_events.updated_at` wurde zusammen mit dem Versions-Endpunkt eingeführt.
+Bestehende Datenbanken werden automatisch migriert:
+
+- Die Import-Routes (`POST /api/groups/...`) legen das Schema über `initDatabase()` an.
+- Die Lese-Pfade führen das Schema-Setup aus Kostengründen **nicht** bei jedem Request aus.
+  Fehlt die Spalte, ergänzt die erste betroffene Abfrage sie einmalig selbst und wiederholt
+  sich danach. Im Normalbetrieb entsteht dadurch kein zusätzlicher Aufwand.
+
+Ein manueller Migrationsschritt ist also nicht nötig.
+
 ### Monitoring einrichten
 
 1. **Spend Limit** setzen: Vercel Dashboard → "Settings" → "Billing" → "Spend Management".
