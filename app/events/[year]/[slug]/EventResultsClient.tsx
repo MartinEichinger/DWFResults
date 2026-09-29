@@ -175,10 +175,10 @@ export type EventResultsClientProps = {
   slug: string;
   initialEvent: TEvent | null;
   initialGroups: TStartgroup[];
-  initialUpdatedAt: number | null;
+  initialVersion: string | null;
 };
 
-export default function EventResultsClient({ slug, initialEvent, initialGroups, initialUpdatedAt }: EventResultsClientProps) {
+export default function EventResultsClient({ slug, initialEvent, initialGroups, initialVersion }: EventResultsClientProps) {
   const dispatch = useAppDispatch();
 
   // The initial payload is rendered on the server, the redux store only keeps it
@@ -215,7 +215,7 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
   }, [dispatch, slug, initialEvent, initialGroups]);
 
   // Keeps the store in sync by polling the cheap version endpoint.
-  const { paused, refresh } = useEventResultsLiveUpdates(slug, initialUpdatedAt);
+  const { paused, refresh } = useEventResultsLiveUpdates(slug, initialVersion);
 
   const groups = useMemo(() => buildGroups(rawGroups), [rawGroups]);
 

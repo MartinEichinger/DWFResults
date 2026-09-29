@@ -79,10 +79,38 @@ const EVENT_RESULTS_SQL = `
   WHERE e.slug = ?
 `;
 
+// Fingerprint of the stored event data. It is derived from the data itself
+// instead of relying solely on `a_events.updated_at`, because that column is only
+// maintained by the import routes - data written through any other path (for
+// example directly into the database) would otherwise never be noticed by the
+// polling clients.
+const EVENT_VERSION_SQL = `
+  SELECT
+    COALESCE(e.updated_at, 0) AS updated_at,
+    COUNT(DISTINCT s.id) AS group_count,
+    COUNT(DISTINCT c.id) AS category_count,
+    COUNT(f.id) AS form_count,
+    COALESCE(MAX(s.id), 0) AS max_group_id,
+    COALESCE(MAX(f.id), 0) AS max_form_id,
+    COALESCE(MAX(s.actuallycompleted), '') AS last_completed,
+    COALESCE(MAX(s.starttime), '') AS last_starttime,
+    COALESCE(SUM(COALESCE(f.finalscore, 0)), 0) AS score_sum,
+    COALESCE(SUM(COALESCE(f.placement, 0)), 0) AS placement_sum,
+    COALESCE(SUM(COALESCE(f.standarddeviation, 0)), 0) AS deviation_sum,
+    COALESCE(SUM(COALESCE(f.mainrefereededuction, 0)), 0) AS deduction_sum,
+    COALESCE(SUM(COALESCE(f.notshowedup, 0)), 0) AS notshowedup_sum
+  FROM a_events e
+  LEFT JOIN a_startgroups s ON s.event_id = e.id
+  LEFT JOIN a_categories c ON c.startgroup_id = s.id
+  LEFT JOIN a_forms f ON f.category_id = c.id
+  WHERE e.slug = ?
+  GROUP BY e.id
+`;
+
 export type TEventResultsPayload = {
   event: TEvent;
   groups: TStartgroup[];
-  updatedAt: number;
+  version: string;
 };
 
 // `a_events.updated_at` was introduced together with the polling endpoints, so
@@ -132,7 +160,7 @@ export async function getEvents(): Promise<TEvent[]> {
 }
 
 export async function getEventResults(slug: string): Promise<TEventResultsPayload | null> {
-  const result = await withUpdatedAtColumn(() => db.execute({ sql: EVENT_RESULTS_SQL, args: [slug] }));
+  const [result, version] = await Promise.all([withUpdatedAtColumn(() => db.execute({ sql: EVENT_RESULTS_SQL, args: [slug] })), getEventVersion(slug)]);
 
   if (result.rows.length === 0) {
     return null;
@@ -141,21 +169,26 @@ export async function getEventResults(slug: string): Promise<TEventResultsPayloa
   const { groups: groupsJson, ...event } = result.rows[0] as unknown as TEvent & { groups: string | null };
   const groups = (groupsJson ? JSON.parse(groupsJson) : []) as TStartgroup[];
 
-  return { event, groups, updatedAt: toTimestamp(event.updated_at) };
+  return { event, groups, version: version ?? "" };
 }
 
 /**
- * Reads only the change counter of an event. This is the query behind the very
- * cheap version endpoint the clients poll.
+ * Builds a short fingerprint of the stored event data. This is the query behind
+ * the very cheap version endpoint the clients poll: it only aggregates a handful
+ * of numbers instead of serialising the whole result tree.
  */
-export async function getEventVersion(slug: string): Promise<number | null> {
-  const result = await withUpdatedAtColumn(() => db.execute({ sql: "SELECT updated_at FROM a_events WHERE slug = ?", args: [slug] }));
+export async function getEventVersion(slug: string): Promise<string | null> {
+  const result = await withUpdatedAtColumn(() => db.execute({ sql: EVENT_VERSION_SQL, args: [slug] }));
 
   if (result.rows.length === 0) {
     return null;
   }
 
-  return toTimestamp(result.rows[0].updated_at);
+  const row = result.rows[0] as unknown as Record<string, unknown>;
+
+  return Object.values(row)
+    .map((value) => (typeof value === "bigint" ? value.toString() : String(value ?? "")))
+    .join("-");
 }
 
 /**
@@ -166,8 +199,3 @@ export async function touchEvent(slug: string): Promise<void> {
   await withUpdatedAtColumn(() => db.execute({ sql: "UPDATE a_events SET updated_at = ? WHERE slug = ?", args: [Date.now(), slug] }));
 }
 
-function toTimestamp(value: unknown): number {
-  const numericValue = typeof value === "bigint" ? Number(value) : typeof value === "number" ? value : Number.NaN;
-
-  return Number.isFinite(numericValue) ? numericValue : 0;
-}

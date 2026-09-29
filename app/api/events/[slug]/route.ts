@@ -15,7 +15,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
 
     // Clients that already hold the current revision only receive an empty 304,
     // which keeps both the response time and the transferred bytes minimal.
-    const etag = `"${slug}-${results.updatedAt}"`;
+    const etag = `"${slug}-${results.version}"`;
 
     if (request.headers.get("If-None-Match") === etag) {
       return new NextResponse(null, { status: 304, headers: { ETag: etag, "Cache-Control": "no-cache" } });
@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       {
         event: results.event,
         groups: results.groups,
-        updatedAt: results.updatedAt,
+        version: results.version,
       },
       {
         headers: {

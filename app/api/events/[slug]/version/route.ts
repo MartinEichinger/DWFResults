@@ -10,13 +10,13 @@ export const maxDuration = 5;
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
-    const updatedAt = await getEventVersion(slug);
+    const version = await getEventVersion(slug);
 
-    if (updatedAt === null) {
+    if (version === null) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ updatedAt }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ version }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("Error fetching event version:", error);
     return NextResponse.json({ error: "Failed to fetch version" }, { status: 500 });

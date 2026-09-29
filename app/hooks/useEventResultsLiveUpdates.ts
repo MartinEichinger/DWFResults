@@ -39,12 +39,12 @@ export type TLiveUpdatesState = {
  * @param initialVersion Revision of the server rendered payload, so the first poll
  *                       does not trigger a redundant full reload.
  */
-export function useEventResultsLiveUpdates(slug: string | null, initialVersion: number | null = null): TLiveUpdatesState {
+export function useEventResultsLiveUpdates(slug: string | null, initialVersion: string | null = null): TLiveUpdatesState {
   const dispatch = useAppDispatch();
   const [paused, setPaused] = useState(false);
   const lastInteractionRef = useRef(Date.now());
   const lastChangeRef = useRef(Date.now());
-  const knownVersionRef = useRef<number | null>(initialVersion);
+  const knownVersionRef = useRef<string | null>(initialVersion);
   const resumeRef = useRef<(() => void) | null>(null);
 
   const refresh = useCallback(() => {
@@ -105,10 +105,10 @@ export function useEventResultsLiveUpdates(slug: string | null, initialVersion: 
         const response = await fetch(`/api/events/${encodeURIComponent(slug)}/version`, { cache: "no-store" });
 
         if (response.ok) {
-          const { updatedAt } = (await response.json()) as { updatedAt: number };
+          const { version } = (await response.json()) as { version: string };
 
-          if (knownVersionRef.current === null || updatedAt !== knownVersionRef.current) {
-            knownVersionRef.current = updatedAt;
+          if (knownVersionRef.current === null || version !== knownVersionRef.current) {
+            knownVersionRef.current = version;
             lastChangeRef.current = Date.now();
             await dispatch(fetchEventResults(slug));
           }

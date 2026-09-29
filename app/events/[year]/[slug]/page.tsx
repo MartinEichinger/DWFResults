@@ -18,5 +18,5 @@ export default async function EventResultsPage({ params }: { params: Promise<{ y
     console.error("Error fetching event results:", error);
   }
 
-  return <EventResultsClient slug={slug} initialEvent={results?.event ?? null} initialGroups={results?.groups ?? []} initialUpdatedAt={results?.updatedAt ?? null} />;
+  return <EventResultsClient slug={slug} initialEvent={results?.event ?? null} initialGroups={results?.groups ?? []} initialVersion={results?.version ?? null} />;
 }
