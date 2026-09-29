@@ -173,3 +173,25 @@ Vercel deployed automatisch bei jedem Push zum main Branch:
 - **Turso Starter Plan**: Kostenlos bis 9 GB Storage und 500 GB Bandwidth
 
 Für Produktionsumgebungen mit mehr Traffic solltest du die Paid Plans in Betracht ziehen.
+
+### Compute-Verbrauch niedrig halten
+
+Vercel rechnet Fluid Compute in **GB-Stunden** ab, also zugewiesener Speicher × Laufzeit
+der Funktion (nicht CPU-Zeit). Lange laufende Funktionen sind deshalb die teuerste
+Fehlerquelle. Die App ist darauf ausgelegt, dies zu vermeiden:
+
+- Es werden **keine dauerhaft offenen Verbindungen** (SSE/WebSocket) mehr gehalten.
+- Seiten und die Event-Liste werden per ISR aus dem CDN ausgeliefert.
+- Clients pollen nur `GET /api/events/[slug]/version` und laden die vollständigen
+  Ergebnisse erst bei einer echten Änderung.
+- Polling pausiert bei verstecktem Tab und stoppt nach 30 Minuten Inaktivität.
+- `vercel.json` begrenzt den Funktionsspeicher auf 512 MB, die Routen setzen zusätzlich
+  ein `maxDuration`.
+
+### Monitoring einrichten
+
+1. **Spend Limit** setzen: Vercel Dashboard → "Settings" → "Billing" → "Spend Management".
+2. **Usage Alerts** aktivieren, damit du bei z. B. 50 % und 80 % des Kontingents
+   benachrichtigt wirst.
+3. Nach jedem Wettkampftag unter "Observability" → "Functions" prüfen, welche Route die
+   meiste Laufzeit (GB-Std) verursacht hat.

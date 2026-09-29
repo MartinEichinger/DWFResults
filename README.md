@@ -93,15 +93,17 @@ npm run dev
 ## API Endpunkte
 
 ### GET /api/events
-Gibt alle Veranstaltungen zurück.
+Gibt alle Veranstaltungen zurück. Die Antwort wird über `Cache-Control`
+(`s-maxage` / `stale-while-revalidate`) im CDN zwischengespeichert.
 
 ### GET /api/events/[slug]
-Gibt Details und Ergebnisse für eine spezifische Veranstaltung zurück.
+Gibt Details und Ergebnisse für eine spezifische Veranstaltung zurück. Die Antwort trägt
+einen `ETag`; Clients mit passendem `If-None-Match` erhalten ein leeres `304`.
 
-### GET /api/events/[slug]/stream
-Server-Sent-Events Stream. Sendet ein `update`-Event, sobald die Daten der Veranstaltung
-über eine der POST-Routes geändert wurden. Der Browser lädt daraufhin die Daten in den
-Redux Store nach, sodass die Anzeige ohne Seiten-Refresh aktuell bleibt.
+### GET /api/events/[slug]/version
+Sehr leichtgewichtiger Endpunkt, der nur `{ updatedAt }` der Veranstaltung zurückgibt.
+Der Browser pollt diesen Endpunkt und lädt die vollständigen Ergebnisse ausschließlich
+dann nach, wenn sich der Wert geändert hat.
 
 ### POST /api/import
 Importiert Daten von extern. Benötigt `x-api-key` Header.
@@ -114,9 +116,15 @@ Der Redux Store (`lib/store`) hält die Daten der Datenbank (Struktur siehe `lib
 - `eventResults` – pro Slug die komplette Veranstaltung inkl. Startgruppen, Kategorien,
   Formen und Teilnehmern, geladen über `GET /api/events/[slug]`
 
-Der Store wird über `app/StoreProvider.tsx` bereitgestellt. Die Seiten lesen ihre Daten
-ausschließlich aus dem Store. Der Hook `useEventResultsLiveUpdates` abonniert den
-SSE-Stream (mit Polling-Fallback) und lädt die Daten nach jedem Datenbank-Update neu.
+Der Store wird über `app/StoreProvider.tsx` bereitgestellt. Die Startseite und die
+Ergebnisseite rendern ihre Initialdaten als Server Component mit ISR und übergeben sie an
+die Client-Komponenten, die den Store damit befüllen. Der Hook
+`useEventResultsLiveUpdates` hält die Daten anschließend über den Versions-Endpunkt
+aktuell:
+
+- Polling pausiert, solange der Tab im Hintergrund ist (`visibilitychange`).
+- Nach 30 Minuten ohne Interaktion stoppt das Polling; ein "Aktualisieren"-Button setzt es fort.
+- Laufende Wettkämpfe werden alle 30 Sekunden geprüft, abgeschlossene alle 5 Minuten.
 
 ## Daten importieren
 

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { db, initDatabase, TStartgroup } from "@/lib/db";
-import { publishDatabaseUpdate } from "@/lib/realtime";
+import { touchEvent } from "@/lib/queries";
+
+// Imports write a lot of rows, but must never run unbounded.
+export const maxDuration = 60;
 
 const debug = 0;
 
@@ -356,8 +359,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
       }
     }
 
-    // Notify all connected clients so that their redux store is refreshed.
-    publishDatabaseUpdate(slug);
+    // Bump the change counter so that polling clients reload the results.
+    await touchEvent(slug);
 
     return NextResponse.json({ success: true, message: "Data imported successfully" });
   } catch (error) {

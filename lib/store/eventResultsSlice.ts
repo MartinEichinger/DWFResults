@@ -1,4 +1,4 @@
-import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { TEvent, TStartgroup } from "@/lib/db";
 import type { TRequestStatus } from "./eventsSlice";
 
@@ -49,7 +49,18 @@ export const fetchEventResults = createAsyncThunk<{ event: TEvent; groups: TStar
 const eventResultsSlice = createSlice({
   name: "eventResults",
   initialState,
-  reducers: {},
+  reducers: {
+    // Seeds the store with data that was already rendered on the server, so the
+    // client does not have to call the API again on the first page view.
+    setEventResults(state, action: PayloadAction<{ slug: string; event: TEvent; groups: TStartgroup[] }>) {
+      const entry = ensureEntry(state, action.payload.slug);
+      entry.status = "succeeded";
+      entry.error = null;
+      entry.event = action.payload.event;
+      entry.groups = action.payload.groups ?? [];
+      entry.lastUpdated = Date.now();
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchEventResults.pending, (state, action) => {
@@ -72,5 +83,7 @@ const eventResultsSlice = createSlice({
       });
   },
 });
+
+export const { setEventResults } = eventResultsSlice.actions;
 
 export default eventResultsSlice.reducer;
