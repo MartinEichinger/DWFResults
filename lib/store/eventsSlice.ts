@@ -16,7 +16,9 @@ const initialState: TEventsState = {
 };
 
 export const fetchEvents = createAsyncThunk<TEvent[]>("events/fetchEvents", async () => {
-  const response = await fetch("/api/events", { cache: "no-store" });
+  // The endpoint is cached on the CDN for five minutes, so the default caching
+  // behaviour is used instead of forcing a request through to a function.
+  const response = await fetch("/api/events");
 
   if (!response.ok) {
     throw new Error("Failed to fetch events");
