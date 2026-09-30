@@ -18,6 +18,13 @@ const ACTIVITY_WINDOW_MS = 10 * 60_000;
 // user has to refresh manually. This prevents forgotten tabs from polling for days.
 const INACTIVITY_TIMEOUT_MS = 30 * 60_000;
 
+// Without this, all clients that opened the page around the same time would poll
+// in lockstep and hit the backend in synchronised waves. A random offset spreads
+// the load evenly over the interval.
+const JITTER_RATIO = 0.3;
+
+const withJitter = (intervalMs: number) => Math.round(intervalMs * (1 - JITTER_RATIO / 2 + Math.random() * JITTER_RATIO));
+
 export type TLiveUpdatesState = {
   /** True while polling is paused because the user has been inactive for too long. */
   paused: boolean;
@@ -79,7 +86,7 @@ export function useEventResultsLiveUpdates(slug: string | null, initialVersion: 
 
       const active = Date.now() - lastChangeRef.current < ACTIVITY_WINDOW_MS;
 
-      timer = setTimeout(tick, active ? ACTIVE_POLLING_INTERVAL_MS : DORMANT_POLLING_INTERVAL_MS);
+      timer = setTimeout(tick, withJitter(active ? ACTIVE_POLLING_INTERVAL_MS : DORMANT_POLLING_INTERVAL_MS));
     };
 
     const tick = async () => {
@@ -102,15 +109,21 @@ export function useEventResultsLiveUpdates(slug: string | null, initialVersion: 
       inFlight = true;
 
       try {
-        const response = await fetch(`/api/events/${encodeURIComponent(slug)}/version`, { cache: "no-store" });
+        // No explicit cache option: the endpoint answers with max-age=0, so the
+        // browser revalidates on every poll while the CDN absorbs the request.
+        const response = await fetch(`/api/events/${encodeURIComponent(slug)}/version`);
 
         if (response.ok) {
           const { version } = (await response.json()) as { version: string };
 
           if (knownVersionRef.current === null || version !== knownVersionRef.current) {
-            knownVersionRef.current = version;
             lastChangeRef.current = Date.now();
-            await dispatch(fetchEventResults(slug));
+
+            // The revision travels with the request so the payload can be served
+            // from the CDN. It is only remembered once the matching payload has
+            // actually arrived, otherwise a failed load would never be retried.
+            await dispatch(fetchEventResults({ slug, version })).unwrap();
+            knownVersionRef.current = version;
           }
         }
       } catch {

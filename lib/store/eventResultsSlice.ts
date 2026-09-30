@@ -36,15 +36,31 @@ const ensureEntry = (state: TEventResultsState, slug: string): TEventResults => 
   return entry;
 };
 
-export const fetchEventResults = createAsyncThunk<{ event: TEvent; groups: TStartgroup[] }, string>("eventResults/fetchEventResults", async (slug) => {
-  const response = await fetch(`/api/events/${encodeURIComponent(slug)}`, { cache: "no-store" });
+export type TFetchEventResultsArg = string | { slug: string; version?: string | null };
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch results");
-  }
+const toFetchArgs = (arg: TFetchEventResultsArg): { slug: string; version: string | null } => {
+  return typeof arg === "string" ? { slug: arg, version: null } : { slug: arg.slug, version: arg.version ?? null };
+};
 
-  return (await response.json()) as { event: TEvent; groups: TStartgroup[] };
-});
+export const fetchEventResults = createAsyncThunk<{ event: TEvent; groups: TStartgroup[] }, TFetchEventResultsArg>(
+  "eventResults/fetchEventResults",
+  async (arg) => {
+    const { slug, version } = toFetchArgs(arg);
+
+    // Passing the known revision makes the URL change with the data, so the CDN
+    // can cache the (expensive) payload and still never answer with stale results.
+    const url = version ? `/api/events/${encodeURIComponent(slug)}?v=${encodeURIComponent(version)}` : `/api/events/${encodeURIComponent(slug)}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch results");
+    }
+
+    return (await response.json()) as { event: TEvent; groups: TStartgroup[] };
+  },
+);
+
+const slugOfArg = (arg: TFetchEventResultsArg): string => toFetchArgs(arg).slug;
 
 const eventResultsSlice = createSlice({
   name: "eventResults",
@@ -64,12 +80,12 @@ const eventResultsSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchEventResults.pending, (state, action) => {
-        const entry = ensureEntry(state, action.meta.arg);
+        const entry = ensureEntry(state, slugOfArg(action.meta.arg));
         entry.status = "loading";
         entry.error = null;
       })
       .addCase(fetchEventResults.fulfilled, (state, action) => {
-        const entry = ensureEntry(state, action.meta.arg);
+        const entry = ensureEntry(state, slugOfArg(action.meta.arg));
         entry.status = "succeeded";
         entry.error = null;
         entry.event = action.payload.event;
@@ -77,7 +93,7 @@ const eventResultsSlice = createSlice({
         entry.lastUpdated = Date.now();
       })
       .addCase(fetchEventResults.rejected, (state, action) => {
-        const entry = ensureEntry(state, action.meta.arg);
+        const entry = ensureEntry(state, slugOfArg(action.meta.arg));
         entry.status = "failed";
         entry.error = action.error.message ?? "An error occurred";
       });
