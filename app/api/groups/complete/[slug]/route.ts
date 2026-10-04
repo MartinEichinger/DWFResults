@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { db, initDatabase, TStartgroup } from "@/lib/db";
 import { publishDatabaseUpdate } from "@/lib/realtime";
 
+export const maxDuration = 300;
+
 const debug = 0;
 
 type SqlArg = string | number | bigint | boolean | Uint8Array | ArrayBuffer | Date | null;
@@ -119,6 +121,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
 
     if (debug > 0) console.log("groups/complete/startgroup: ", groups[0]);
 
+    const statements: { sql: string; args: SqlArg[] }[] = [];
+    const flushStatements = async () => {
+      if (statements.length === 0) return;
+      await db.batch(statements, "write");
+      statements.length = 0;
+    };
+    const addStatement = async (statement: { sql: string; args: SqlArg[] }) => {
+      statements.push(statement);
+      if (statements.length >= 100) await flushStatements();
+    };
+
     for (const group of groups) {
       const startGroupId = toRequiredInteger(group.id, "group startgroupId");
       const startGroupName = typeof group.startgroupname === "string" ? group.startgroupname.trim() : "";
@@ -127,7 +140,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         throw new TypeError("Missing startGroupName");
       }
 
-      const startGroupResult = await db.execute({
+      await addStatement({
         sql: `
 				INSERT INTO a_startgroups (event_id, startgroup_id, actuallycompleted, areaSensitiveStartingPlace, competitionarea, plannedendtime, simultaneousstarter, startgroupname, starttime)
 				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -154,17 +167,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
         ],
       });
 
-      if (startGroupResult.rows.length === 0) {
-        throw new Error(`Could not resolve startgroup id for event ${eventId}`);
-      }
-
-      const lastStartGroupId = toRequiredInteger(startGroupResult.rows[0].id, "startgroup id");
-
       if (!Array.isArray(group.categories)) {
         continue;
       }
 
-      if (debug > 0) console.log("groups/complete/category: ", group.categories[0], lastStartGroupId);
+      if (debug > 0) console.log("groups/complete/category: ", group.categories[0], startGroupId);
 
       for (const category of group.categories) {
         const categoryId = toRequiredInteger(category.id, "category id");
@@ -174,10 +181,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
           throw new TypeError(`Missing category name for category ${categoryId}`);
         }
 
-        const categoryResult = await db.execute({
+        await addStatement({
           sql: `
             INSERT INTO a_categories (startgroup_id, category_id, agegroup, categoryname, gender, timelimit)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES ((SELECT id FROM a_startgroups WHERE event_id = ? AND startgroup_id = ?), ?, ?, ?, ?, ?)
             ON CONFLICT (startgroup_id, category_id) DO UPDATE SET
               agegroup = excluded.agegroup,
               categoryname = excluded.categoryname,
@@ -186,7 +193,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
             RETURNING id
           `,
           args: [
-            lastStartGroupId,
+            eventId,
+            startGroupId,
             categoryId,
             toSqlArg(category.agegroup),
             toSqlArg(category.categoryname),
@@ -195,17 +203,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
           ],
         });
 
-        if (categoryResult.rows.length === 0) {
-          throw new Error(`Could not resolve category id for start group ${startGroupId}`);
-        }
-
-        const lastCategoryId = toRequiredInteger(categoryResult.rows[0].id, "category id");
-
         if (!Array.isArray(category.forms)) {
           continue;
         }
 
-        if (debug > 0) console.log("groups/complete/form: ", category.forms[0], lastCategoryId);
+        if (debug > 0) console.log("groups/complete/form: ", category.forms[0], categoryId);
 
         for (const form of category.forms) {
           const formId = toRequiredInteger(form.id, "form id");
@@ -215,10 +217,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
             throw new TypeError(`Missing form name for form ${formId}`);
           }
 
-          const formResult = await db.execute({
+          await addStatement({
             sql: `
             INSERT INTO a_forms (category_id, form_id, agegroup, categoryname, club, depreferee1id, depreferee2id, depreferee3id, depreferee4id, endingtime, finalscore, gender, mainrefereededuction, mainrefereedeductionjustification, name, notshowedup, placement,rating1,rating2,rating3,rating4,rating5,rating6,rating7,rating8,standarddeviation,startingorder,startingtime)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES ((SELECT category.id FROM a_categories AS category
+              JOIN a_startgroups AS startgroup ON startgroup.id = category.startgroup_id
+              WHERE startgroup.event_id = ? AND startgroup.startgroup_id = ? AND category.category_id = ?),
+              ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT (category_id, form_id) DO UPDATE SET
               agegroup = excluded.agegroup,
               categoryname = excluded.categoryname,
@@ -249,7 +254,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
             RETURNING id
           `,
             args: [
-              lastCategoryId,
+              eventId,
+              startGroupId,
+              categoryId,
               formId,
               toSqlArg(form.agegroup),
               toSqlArg(form.categoryname),
@@ -280,32 +287,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
             ],
           });
 
-          let lastFormId = formResult.rows.length > 0 ? toRequiredInteger(formResult.rows[0].id, "form id") : null;
-
-          if (lastFormId === null) {
-            const existingForm = await db.execute({
-              sql: `
-              SELECT id
-              FROM a_forms
-              WHERE form_id = ? AND category_id = ?
-              ORDER BY id DESC
-              LIMIT 1
-            `,
-              args: [formId, lastCategoryId],
-            });
-
-            if (existingForm.rows.length === 0) {
-              throw new Error(`Could not resolve form id for category ${categoryId}`);
-            }
-
-            lastFormId = toRequiredInteger(existingForm.rows[0].id, "form id");
-          }
-
           if (!Array.isArray(form.participants)) {
             continue;
           }
 
-          if (debug > 0) console.log("groups/complete/participants: ", form.participants[0], lastFormId);
+          if (debug > 0) console.log("groups/complete/participants: ", form.participants[0], formId);
 
           for (const participant of form.participants) {
             const participantId = toRequiredInteger(participant.id, "participant id");
@@ -315,7 +301,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
               throw new TypeError(`Missing participant name for participant ${participantId}`);
             }
 
-            const participantResult = await db.execute({
+            await addStatement({
               sql: `
                 INSERT INTO a_participants (participant_id, forename, surname, name, club, gender)
                 VALUES (?,?,?,?,?,?)
@@ -337,24 +323,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ slu
               ],
             });
 
-            if (participantResult.rows.length === 0) {
-              throw new Error(`Could not resolve participant id for participant ${participantId}`);
-            }
-
-            const lastParticipantId = toRequiredInteger(participantResult.rows[0].id, "participant id");
-
-            await db.execute({
+            await addStatement({
               sql: `
                 INSERT INTO a_forms_participants (form_id, participant_id)
-                VALUES (?, ?)
+                VALUES ((SELECT form.id FROM a_forms AS form
+                  JOIN a_categories AS category ON category.id = form.category_id
+                  JOIN a_startgroups AS startgroup ON startgroup.id = category.startgroup_id
+                  WHERE startgroup.event_id = ? AND startgroup.startgroup_id = ?
+                    AND category.category_id = ? AND form.form_id = ?),
+                  (SELECT id FROM a_participants WHERE participant_id = ?))
                 ON CONFLICT DO NOTHING
               `,
-              args: [lastFormId, lastParticipantId],
+              args: [eventId, startGroupId, categoryId, formId, participantId],
             });
           }
         }
       }
     }
+
+    await flushStatements();
 
     // Notify all connected clients so that their redux store is refreshed.
     publishDatabaseUpdate(slug);
