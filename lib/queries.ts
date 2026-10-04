@@ -37,6 +37,7 @@ const EVENT_RESULTS_SQL = `
                 'finalscore', f.finalscore,
                 'gender', f.gender,
                 'mainrefereededuction', f.mainrefereededuction,
+                'mainrefereedeductionjustification', f.mainrefereedeductionjustification,
                 'name', f.name,
                 'notshowedup', f.notshowedup,
                 'placement', f.placement,
@@ -198,4 +199,3 @@ export async function getEventVersion(slug: string): Promise<string | null> {
 export async function touchEvent(slug: string): Promise<void> {
   await withUpdatedAtColumn(() => db.execute({ sql: "UPDATE a_events SET updated_at = ? WHERE slug = ?", args: [Date.now(), slug] }));
 }
-
