@@ -1,65 +1,179 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchEventResults } from "@/lib/store/eventResultsSlice";
 import { useAppDispatch } from "@/lib/store/hooks";
 
-// Fallback in case the browser cannot keep a Server-Sent-Events connection open
-// (e.g. blocked by a proxy). The data is then reloaded periodically.
-const POLLING_INTERVAL_MS = 30_000;
+// While data is still coming in, the cheap version endpoint is polled at this rate.
+const ACTIVE_POLLING_INTERVAL_MS = 15_000;
+
+// An event that has not changed for a while is polled far less often.
+const DORMANT_POLLING_INTERVAL_MS = 5 * 60_000;
+
+// How long after the last observed change the fast interval is kept. Any change
+// resets this, so an event that keeps receiving imports is never slowed down.
+const ACTIVITY_WINDOW_MS = 10 * 60_000;
+
+// After this time without any user interaction polling stops completely and the
+// user has to refresh manually. This prevents forgotten tabs from polling for days.
+const INACTIVITY_TIMEOUT_MS = 30 * 60_000;
+
+// Without this, all clients that opened the page around the same time would poll
+// in lockstep and hit the backend in synchronised waves. A random offset spreads
+// the load evenly over the interval.
+const JITTER_RATIO = 0.3;
+
+const withJitter = (intervalMs: number) => Math.round(intervalMs * (1 - JITTER_RATIO / 2 + Math.random() * JITTER_RATIO));
+
+export type TLiveUpdatesState = {
+  /** True while polling is paused because the user has been inactive for too long. */
+  paused: boolean;
+  /** Triggers an immediate reload and resumes polling. */
+  refresh: () => void;
+};
 
 /**
- * Keeps the redux store in sync with the database: every write through the API
- * routes triggers a Server-Sent-Event, which reloads the event data.
+ * Keeps the redux store in sync with the database by polling a lightweight
+ * version endpoint. The full (and expensive) result payload is only requested
+ * when the event actually changed.
+ *
+ * The polling rate follows the observed activity instead of deriving from the
+ * data whether a competition is over: as long as results keep arriving the fast
+ * interval is used, and every detected change resets the window. Polling can
+ * therefore never get stuck slow while data is still being imported.
+ *
+ * @param slug           Event slug to watch.
+ * @param initialVersion Revision of the server rendered payload, so the first poll
+ *                       does not trigger a redundant full reload.
  */
-export function useEventResultsLiveUpdates(slug: string | null) {
+export function useEventResultsLiveUpdates(slug: string | null, initialVersion: string | null = null): TLiveUpdatesState {
   const dispatch = useAppDispatch();
+  const [paused, setPaused] = useState(false);
+  const lastInteractionRef = useRef(Date.now());
+  const lastChangeRef = useRef(Date.now());
+  const knownVersionRef = useRef<string | null>(initialVersion);
+  const resumeRef = useRef<(() => void) | null>(null);
+
+  const refresh = useCallback(() => {
+    lastInteractionRef.current = Date.now();
+    lastChangeRef.current = Date.now();
+    setPaused(false);
+    resumeRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (!slug) {
       return;
     }
 
-    let pollingTimer: ReturnType<typeof setInterval> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    let inFlight = false;
 
-    const stopPolling = () => {
-      if (pollingTimer) {
-        clearInterval(pollingTimer);
-        pollingTimer = null;
+    const stop = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
       }
     };
 
-    const startPolling = () => {
-      if (pollingTimer) {
+    const schedule = () => {
+      stop();
+
+      if (cancelled) {
         return;
       }
 
-      pollingTimer = setInterval(() => {
-        dispatch(fetchEventResults(slug));
-      }, POLLING_INTERVAL_MS);
+      const active = Date.now() - lastChangeRef.current < ACTIVITY_WINDOW_MS;
+
+      timer = setTimeout(tick, withJitter(active ? ACTIVE_POLLING_INTERVAL_MS : DORMANT_POLLING_INTERVAL_MS));
     };
 
-    if (typeof EventSource === "undefined") {
-      startPolling();
-      return stopPolling;
-    }
+    const tick = async () => {
+      if (cancelled || inFlight) {
+        return;
+      }
 
-    const source = new EventSource(`/api/events/${encodeURIComponent(slug)}/stream`);
+      // Do not spend requests while the tab is hidden or the device is locked.
+      if (document.visibilityState === "hidden") {
+        stop();
+        return;
+      }
 
-    const handleUpdate = () => {
-      dispatch(fetchEventResults(slug));
+      if (Date.now() - lastInteractionRef.current > INACTIVITY_TIMEOUT_MS) {
+        stop();
+        setPaused(true);
+        return;
+      }
+
+      inFlight = true;
+
+      try {
+        // No explicit cache option: the endpoint answers with max-age=0, so the
+        // browser revalidates on every poll while the CDN absorbs the request.
+        const response = await fetch(`/api/events/${encodeURIComponent(slug)}/version`);
+
+        if (response.ok) {
+          const { version } = (await response.json()) as { version: string };
+
+          if (knownVersionRef.current === null || version !== knownVersionRef.current) {
+            lastChangeRef.current = Date.now();
+
+            // The revision travels with the request so the payload can be served
+            // from the CDN. It is only remembered once the matching payload has
+            // actually arrived, otherwise a failed load would never be retried.
+            await dispatch(fetchEventResults({ slug, version })).unwrap();
+            knownVersionRef.current = version;
+          }
+        }
+      } catch {
+        // Network hiccup - simply try again on the next tick.
+      } finally {
+        inFlight = false;
+
+        if (!cancelled) {
+          schedule();
+        }
+      }
     };
 
-    source.addEventListener("update", handleUpdate);
-    source.addEventListener("open", stopPolling);
-    source.addEventListener("error", startPolling);
+    const resume = () => {
+      lastInteractionRef.current = Date.now();
+      setPaused(false);
+      void tick();
+    };
+
+    resumeRef.current = resume;
+
+    const noteInteraction = () => {
+      lastInteractionRef.current = Date.now();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        resume();
+      } else {
+        stop();
+      }
+    };
+
+    schedule();
+
+    window.addEventListener("focus", noteInteraction);
+    window.addEventListener("pointerdown", noteInteraction);
+    window.addEventListener("keydown", noteInteraction);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      stopPolling();
-      source.removeEventListener("update", handleUpdate);
-      source.removeEventListener("open", stopPolling);
-      source.removeEventListener("error", startPolling);
-      source.close();
+      cancelled = true;
+      stop();
+      resumeRef.current = null;
+      window.removeEventListener("focus", noteInteraction);
+      window.removeEventListener("pointerdown", noteInteraction);
+      window.removeEventListener("keydown", noteInteraction);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [dispatch, slug]);
+
+  return { paused, refresh };
 }
