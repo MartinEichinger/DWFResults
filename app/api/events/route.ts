@@ -52,7 +52,7 @@ function badRequest(error: string) {
 }
 
 // Creates a new event ("Veranstaltungstag"), e.g. from the external referee app.
-// Body: { event: { name, year, slug, date?, location? } }
+// Body: { event: { name, year, slug, date?, location?, visability? (0 | 1, default 1) } }
 // Requires the API key (env API_KEY) as bearer token in the Authorization header.
 export async function POST(request: Request) {
   const expectedApiKey = process.env.API_KEY;
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
     return badRequest("Invalid request body");
   }
 
-  const { name, year, slug, date, location } = input as Record<string, unknown>;
+  const { name, year, slug, date, location, visability } = input as Record<string, unknown>;
 
   const nameText = typeof name === "string" ? name.trim() : "";
   if (!nameText || nameText.length > MAX_NAME_LENGTH) {
@@ -108,17 +108,23 @@ export async function POST(request: Request) {
     return badRequest(`Der Ort darf höchstens ${MAX_LOCATION_LENGTH} Zeichen lang sein.`);
   }
 
+  // Optional, new events are shown on the website by default.
+  if (visability != null && visability !== 0 && visability !== 1 && visability !== "0" && visability !== "1" && typeof visability !== "boolean") {
+    return badRequest("Die Sichtbarkeit (visability) muss 0 oder 1 sein.");
+  }
+  const visabilityValue = visability == null ? 1 : visability === true || visability === 1 || visability === "1" ? 1 : 0;
+
   try {
     await initDatabase();
 
     const result = await db.execute({
       sql: `
-        INSERT INTO a_events (name, year, slug, date, location, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO a_events (name, year, slug, date, location, updated_at, visability)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (slug) DO NOTHING
-        RETURNING id, name, year, slug, date, location
+        RETURNING id, name, year, slug, date, location, visability
       `,
-      args: [nameText, Number.parseInt(yearText, 10), slugText, dateText || null, locationText || null, Date.now()],
+      args: [nameText, Number.parseInt(yearText, 10), slugText, dateText || null, locationText || null, Date.now(), visabilityValue],
     });
 
     if (result.rows.length === 0) {
@@ -126,7 +132,7 @@ export async function POST(request: Request) {
     }
 
     const row = result.rows[0] as unknown as TEvent;
-    const event: TEvent = { ...row, id: Number(row.id), year: Number(row.year) };
+    const event: TEvent = { ...row, id: Number(row.id), year: Number(row.year), visability: Number(row.visability) };
 
     // The event list is cached (ISR / CDN), make the new event visible right away.
     revalidatePath("/");
