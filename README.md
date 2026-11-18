@@ -96,6 +96,18 @@ npm run dev
 Gibt alle Veranstaltungen zurück. Die Antwort wird über `Cache-Control`
 (`s-maxage` / `stale-while-revalidate`) im CDN zwischengespeichert.
 
+### POST /api/events
+Legt eine neue Veranstaltung (Veranstaltungstag) an, z.B. aus der externen Schiri-App.
+Benötigt den `API_KEY` als Bearer-Token im `Authorization`-Header.
+
+```json
+{ "event": { "name": "DWF", "year": 2026, "slug": "2026-DWF", "date": "2026-05-01", "location": "München" } }
+```
+
+`name`, `year` (vierstellig) und `slug` sind Pflicht, `date` (`JJJJ-MM-TT`) und `location`
+optional. Antwortet mit `201` und `{ success, event }`, mit `409` falls der Slug bereits
+existiert und mit `400` bei ungültigen Daten.
+
 ### GET /api/events/[slug]
 Gibt Details und Ergebnisse für eine spezifische Veranstaltung zurück. Die Antwort trägt
 einen `ETag`; Clients mit passendem `If-None-Match` erhalten ein leeres `304`.
