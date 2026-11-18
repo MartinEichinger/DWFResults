@@ -16,15 +16,18 @@ export async function initDatabase() {
       date TEXT,
       location TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at INTEGER
+      updated_at INTEGER,
+      visability INTEGER NOT NULL DEFAULT 1
     )
   `);
 
-  // Added later on - existing databases still need the column.
-  try {
-    await db.execute("ALTER TABLE a_events ADD COLUMN updated_at INTEGER");
-  } catch {
-    // The column already exists.
+  // Added later on - existing databases still need the columns.
+  for (const statement of ["ALTER TABLE a_events ADD COLUMN updated_at INTEGER", "ALTER TABLE a_events ADD COLUMN visability INTEGER NOT NULL DEFAULT 1"]) {
+    try {
+      await db.execute(statement);
+    } catch {
+      // The column already exists.
+    }
   }
 
   await db.execute(`
@@ -146,6 +149,8 @@ export type TEvent = {
   location: string | null;
   created_at?: string;
   updated_at?: number | null;
+  // 1 = shown on the website, 0 = hidden.
+  visability?: number;
 };
 
 export type TStartgroup = {

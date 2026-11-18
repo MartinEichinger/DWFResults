@@ -92,9 +92,29 @@ npm run dev
 
 ## API Endpunkte
 
+### Sichtbarkeit von Veranstaltungen
+Die Spalte `a_events.visability` steuert, ob eine Veranstaltung auf der Webseite erscheint:
+`1` = sichtbar (Standard, auch für bestehende Veranstaltungen), `0` = ausgeblendet.
+Ausgeblendete Veranstaltungen fehlen in der Liste und ihre Ergebnisseite bzw.
+`GET /api/events/[slug]` und `/version` liefern „nicht gefunden“. Importe über die
+`groups`-Routen funktionieren weiterhin. Wegen des Cachings kann eine Änderung bis zu
+5 Minuten (Liste) bzw. 30 Sekunden (Ergebnisseite) dauern.
+
 ### GET /api/events
-Gibt alle Veranstaltungen zurück. Die Antwort wird über `Cache-Control`
+Gibt alle sichtbaren Veranstaltungen zurück. Die Antwort wird über `Cache-Control`
 (`s-maxage` / `stale-while-revalidate`) im CDN zwischengespeichert.
+
+### POST /api/events
+Legt eine neue Veranstaltung (Veranstaltungstag) an, z.B. aus der externen Schiri-App.
+Benötigt den `API_KEY` als Bearer-Token im `Authorization`-Header.
+
+```json
+{ "event": { "name": "DWF", "year": 2026, "slug": "2026-DWF", "date": "2026-05-01", "location": "München" } }
+```
+
+`name`, `year` (vierstellig) und `slug` sind Pflicht, `date` (`JJJJ-MM-TT`), `location` und
+`visability` (`0`/`1`, Standard `1`) optional. Antwortet mit `201` und `{ success, event }`, mit `409` falls der Slug bereits
+existiert und mit `400` bei ungültigen Daten.
 
 ### GET /api/events/[slug]
 Gibt Details und Ergebnisse für eine spezifische Veranstaltung zurück. Die Antwort trägt

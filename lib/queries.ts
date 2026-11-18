@@ -77,7 +77,7 @@ const EVENT_RESULTS_SQL = `
       WHERE s.event_id = e.id
     ) AS groups
   FROM a_events e
-  WHERE e.slug = ?
+  WHERE e.slug = ? AND e.visability = 1
 `;
 
 // Fingerprint of the stored event data. It is derived from the data itself
@@ -104,7 +104,7 @@ const EVENT_VERSION_SQL = `
   LEFT JOIN a_startgroups s ON s.event_id = e.id
   LEFT JOIN a_categories c ON c.startgroup_id = s.id
   LEFT JOIN a_forms f ON f.category_id = c.id
-  WHERE e.slug = ?
+  WHERE e.slug = ? AND e.visability = 1
   GROUP BY e.id
 `;
 
@@ -114,54 +114,76 @@ export type TEventResultsPayload = {
   version: string;
 };
 
-// `a_events.updated_at` was introduced together with the polling endpoints, so
-// databases created before that still lack the column. The read paths no longer
-// run the full schema setup on every request, therefore the column is added
-// lazily the first time a query actually trips over it.
-let updatedAtColumnMigration: Promise<void> | null = null;
+// `a_events.updated_at` (polling endpoints) and `a_events.visability` (hiding
+// events from the website) were added later on, so older databases still lack
+// them. The read paths no longer run the full schema setup on every request,
+// therefore the columns are added lazily the first time a query actually trips
+// over one of them.
+const LATE_EVENT_COLUMNS: Record<string, string> = {
+  updated_at: "ALTER TABLE a_events ADD COLUMN updated_at INTEGER",
+  // Existing events stay visible.
+  visability: "ALTER TABLE a_events ADD COLUMN visability INTEGER NOT NULL DEFAULT 1",
+};
 
-function isMissingUpdatedAtColumn(error: unknown): boolean {
+const columnMigrations = new Map<string, Promise<void>>();
+
+function findMissingEventColumn(error: unknown): string | null {
   const message = error instanceof Error ? error.message : String(error);
 
-  return /no such column/i.test(message) && /updated_at/i.test(message);
+  if (!/no such column/i.test(message)) {
+    return null;
+  }
+
+  return Object.keys(LATE_EVENT_COLUMNS).find((column) => message.includes(column)) ?? null;
 }
 
-function addUpdatedAtColumn(): Promise<void> {
-  updatedAtColumnMigration ??= db.execute("ALTER TABLE a_events ADD COLUMN updated_at INTEGER").then(
+function addEventColumn(column: string): Promise<void> {
+  const existing = columnMigrations.get(column);
+
+  if (existing) {
+    return existing;
+  }
+
+  const migration = db.execute(LATE_EVENT_COLUMNS[column]).then(
     () => undefined,
     // Another instance may have added the column in the meantime.
     () => undefined,
   );
+  columnMigrations.set(column, migration);
 
-  return updatedAtColumnMigration;
+  return migration;
 }
 
 /**
- * Runs a query and, if it failed only because `a_events.updated_at` is missing,
- * adds the column once and retries. In the normal case this costs nothing.
+ * Runs a query and, if it failed only because one of the later added
+ * `a_events` columns is missing, adds the column and retries. In the normal
+ * case this costs nothing.
  */
-async function withUpdatedAtColumn<T>(run: () => Promise<T>): Promise<T> {
-  try {
-    return await run();
-  } catch (error) {
-    if (!isMissingUpdatedAtColumn(error)) {
-      throw error;
+async function withEventColumns<T>(run: () => Promise<T>): Promise<T> {
+  // One retry per late column is enough even if all of them are missing.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      const column = findMissingEventColumn(error);
+
+      if (!column || attempt >= Object.keys(LATE_EVENT_COLUMNS).length) {
+        throw error;
+      }
+
+      await addEventColumn(column);
     }
-
-    await addUpdatedAtColumn();
-
-    return run();
   }
 }
 
 export async function getEvents(): Promise<TEvent[]> {
-  const result = await db.execute("SELECT id, name, year, slug, date, location FROM a_events ORDER BY year DESC, name ASC");
+  const result = await withEventColumns(() => db.execute("SELECT id, name, year, slug, date, location FROM a_events WHERE visability = 1 ORDER BY year DESC, name ASC"));
 
   return result.rows as unknown as TEvent[];
 }
 
 export async function getEventResults(slug: string): Promise<TEventResultsPayload | null> {
-  const [result, version] = await Promise.all([withUpdatedAtColumn(() => db.execute({ sql: EVENT_RESULTS_SQL, args: [slug] })), getEventVersion(slug)]);
+  const [result, version] = await Promise.all([withEventColumns(() => db.execute({ sql: EVENT_RESULTS_SQL, args: [slug] })), getEventVersion(slug)]);
 
   if (result.rows.length === 0) {
     return null;
@@ -179,7 +201,7 @@ export async function getEventResults(slug: string): Promise<TEventResultsPayloa
  * of numbers instead of serialising the whole result tree.
  */
 export async function getEventVersion(slug: string): Promise<string | null> {
-  const result = await withUpdatedAtColumn(() => db.execute({ sql: EVENT_VERSION_SQL, args: [slug] }));
+  const result = await withEventColumns(() => db.execute({ sql: EVENT_VERSION_SQL, args: [slug] }));
 
   if (result.rows.length === 0) {
     return null;
@@ -197,5 +219,5 @@ export async function getEventVersion(slug: string): Promise<string | null> {
  * the (much more expensive) full result payload.
  */
 export async function touchEvent(slug: string): Promise<void> {
-  await withUpdatedAtColumn(() => db.execute({ sql: "UPDATE a_events SET updated_at = ? WHERE slug = ?", args: [Date.now(), slug] }));
+  await withEventColumns(() => db.execute({ sql: "UPDATE a_events SET updated_at = ? WHERE slug = ?", args: [Date.now(), slug] }));
 }
