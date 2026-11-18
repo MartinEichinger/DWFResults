@@ -6,7 +6,9 @@ import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 
-// Header in the style of www.wushudwf.de: dark bar with the DWF logo on the left.
+const LOGO_SIZE = 40;
+
+// Header in the style of www.wushudwf.de: dark bar with the DWF logo on the left and the centered title.
 export default function SiteHeader() {
   return (
     <Box
@@ -20,34 +22,22 @@ export default function SiteHeader() {
       <Container
         maxWidth="lg"
         sx={{
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: `${LOGO_SIZE}px 1fr ${LOGO_SIZE}px`,
           alignItems: "center",
-          justifyContent: "space-between",
           minHeight: { xs: "56px", md: "64px" },
           gap: "16px",
         }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none", color: "inherit" }}>
-          <Image src="/DWFLogoalpha.png" alt="Deutsche Wushu Federation e.V." width={40} height={40} priority />
+        <Link href="/" style={{ display: "flex", alignItems: "center" }}>
+          <Image src="/DWFLogoalpha.png" alt="Deutsche Wushu Federation e.V." width={LOGO_SIZE} height={LOGO_SIZE} priority />
+        </Link>
+        <Link href="/" style={{ textDecoration: "none", color: "inherit", textAlign: "center" }}>
           <Typography component="span" sx={{ fontWeight: 600, fontSize: { xs: "15px", sm: "17px" }, color: "#ffffff" }}>
             DWF Wettkampfergebnisse
           </Typography>
         </Link>
-        <Box
-          component="a"
-          href="https://wushudwf.de"
-          target="_blank"
-          rel="noopener noreferrer"
-          sx={{
-            display: { xs: "none", sm: "inline" },
-            color: "#cccccc",
-            fontSize: "14px",
-            textDecoration: "none",
-            "&:hover": { color: "primary.main" },
-          }}
-        >
-          wushudwf.de
-        </Box>
+        <Box />
       </Container>
     </Box>
   );

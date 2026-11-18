@@ -12,8 +12,9 @@ const theme = createTheme({
 			dark: "#b00014",
 			contrastText: "#ffffff",
 		},
+		// Darker yellow from the DWF logo
 		secondary: {
-			main: "#e4c23d",
+			main: "#ffd34a",
 			contrastText: "#252525",
 		},
 		success: {
