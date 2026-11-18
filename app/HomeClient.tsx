@@ -49,7 +49,7 @@ export default function HomeClient({ initialEvents }: { initialEvents: TEvent[] 
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        flexGrow: 1,
         padding: { xs: "16px", lg: "56px" },
         backgroundColor: "background.default",
       }}
@@ -117,7 +117,8 @@ export default function HomeClient({ initialEvents }: { initialEvents: TEvent[] 
                     sx={{
                       transition: "all 0.2s",
                       "&:hover": {
-                        backgroundColor: "primary.light",
+                        backgroundColor: "rgba(226, 0, 26, 0.08)",
+                        borderColor: "primary.main",
                         transform: "translateY(-2px)",
                         boxShadow: 3,
                       },
