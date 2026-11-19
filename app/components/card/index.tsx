@@ -51,7 +51,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
       }}
     >
       <CardContent sx={{ padding: "0px" }}>
-        <Box sx={{ display: "flex", flexDirection: "row", bgcolor: "primary.light", padding: "8px" }}>
+        <Box sx={{ display: "flex", flexDirection: "row", bgcolor: "secondary.main", padding: "8px" }}>
           <Avatar
             sx={{
               marginRight: "16px",
@@ -64,7 +64,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
             <Typography
               variant="h6"
               sx={{
-                color: "text.primary",
+                color: "secondary.contrastText",
               }}
             >
               {title}
@@ -72,7 +72,7 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
             <Typography
               variant="body2"
               sx={{
-                color: "primary.contrastText",
+                color: "secondary.contrastText",
                 fontSize: "0.8rem",
               }}
             >
@@ -120,9 +120,9 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                       width: 32,
                       height: 32,
                       marginRight: "12px",
-                      border: "1px",
-                      bgcolor: entry.placement === 1 ? "gold" : entry.placement === 2 ? "silver" : entry.placement === 3 ? "#cd7f32" : "primary.light",
-                      color: entry.placement && entry.placement <= 3 ? "black" : "white",
+                      border: "1px solid rgb(200,200,200)",
+                      bgcolor: entry.placement === 1 ? "gold" : entry.placement === 2 ? "silver" : entry.placement === 3 ? "#cd7f32" : "white",
+                      color: entry.placement && entry.placement <= 3 ? "black" : "black",
                       fontWeight: "semibold",
                     }}
                   >

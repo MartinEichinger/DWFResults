@@ -367,7 +367,7 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
     return (
       <Box
         sx={{
-          minHeight: "100vh",
+          flexGrow: 1,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -382,7 +382,7 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
     return (
       <Box
         sx={{
-          minHeight: "100vh",
+          flexGrow: 1,
           padding: { xs: "16px", lg: "56px" },
         }}
       >
@@ -410,7 +410,7 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
   return (
     <Box
       sx={{
-        minHeight: "100vh",
+        flexGrow: 1,
         padding: { xs: "0px 4px", sm: "0px 16px", lg: "0px 56px" },
         backgroundColor: "background.default",
       }}
@@ -449,7 +449,7 @@ export default function EventResultsClient({ slug, initialEvent, initialGroups, 
               display: "flex",
               flexDirection: "column",
               marginBottom: { lg: "32px", xs: "8px" },
-              bgcolor: "primary.light",
+              bgcolor: "secondary.main",
               borderRadius: "4px",
               width: "100%",
               position: "relative",

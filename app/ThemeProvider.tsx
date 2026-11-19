@@ -5,19 +5,28 @@ import CssBaseline from "@mui/material/CssBaseline";
 
 const theme = createTheme({
 	palette: {
+		// Colors adapted from www.wushudwf.de
 		primary: {
-			main: "#1976d2",
-			light: "#42a5f5",
+			main: "#e2001a",
+			light: "#e8334a",
+			dark: "#b00014",
+			contrastText: "#ffffff",
 		},
+		// Darker yellow from the DWF logo
 		secondary: {
-			main: "#dc004e",
+			main: "#ffd34a",
+			contrastText: "#252525",
 		},
 		success: {
 			main: "#4caf50",
 		},
 		background: {
-			default: "#fafafa",
+			default: "#eaeaea",
 			paper: "#ffffff",
+		},
+		text: {
+			primary: "#333333",
+			secondary: "#676767",
 		},
 	},
 	typography: {

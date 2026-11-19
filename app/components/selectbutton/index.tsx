@@ -42,7 +42,7 @@ const SelectButton: React.FC<SelectButtonProps> = ({ listdata, setFilter }) => {
         onClick={handleClick}
         endIcon={<ExpandMoreIcon />}
         sx={{
-          color: "white",
+          color: "black",
           border: "none",
           "&:hover": {
             border: "none",

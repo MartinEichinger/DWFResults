@@ -27,7 +27,7 @@ const FilterHeadline = ({
   children,
   titleVariant = "h4",
   subtitleVariant = "h5",
-  titleColor = "white",
+  titleColor = "black",
   topOffset = { lg: "120px", xs: "72px" },
 }: FilterHeadlineProps) => {
   if (debug > 0) console.log("FilterHeadline: ", filterOn);
@@ -40,7 +40,7 @@ const FilterHeadline = ({
         flexWrap: "nowrap",
         justifyContent: "space-between",
         marginBottom: "8px",
-        bgcolor: "primary.light",
+        bgcolor: "secondary.main",
         borderRadius: "4px",
         width: "100%",
         minWidth: 0,
@@ -97,7 +97,7 @@ const FilterHeadline = ({
           variant="outlined"
           onClick={onToggleFilter}
           sx={{
-            color: "white",
+            color: "black",
             border: "none",
             flex: "0 0 auto",
             whiteSpace: "nowrap",
