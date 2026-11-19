@@ -62,7 +62,7 @@ export default function HomeClient({ initialEvents }: { initialEvents: TEvent[] 
             fontWeight: "bold",
           }}
         >
-          DWF Wushu Competition Results
+          DWF Wushu Wettkampfergebnisse
         </Typography>
 
         <Box sx={{ marginBottom: "32px" }}>
