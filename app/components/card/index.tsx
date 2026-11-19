@@ -120,9 +120,9 @@ export default function ResultCard({ index, title, startingPlace, startTime, com
                       width: 32,
                       height: 32,
                       marginRight: "12px",
-                      border: "1px",
-                      bgcolor: entry.placement === 1 ? "gold" : entry.placement === 2 ? "silver" : entry.placement === 3 ? "#cd7f32" : "primary.light",
-                      color: entry.placement && entry.placement <= 3 ? "black" : "white",
+                      border: "1px solid rgb(200,200,200)",
+                      bgcolor: entry.placement === 1 ? "gold" : entry.placement === 2 ? "silver" : entry.placement === 3 ? "#cd7f32" : "white",
+                      color: entry.placement && entry.placement <= 3 ? "black" : "black",
                       fontWeight: "semibold",
                     }}
                   >
